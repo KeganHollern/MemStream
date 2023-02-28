@@ -24,7 +24,7 @@ HRESULT MSS_GetProcessId(const char* name, uint64_t* pPid) {
 
 HRESULT MSS_GetAllProcessIds(const char* name, PID** ppPidList) {
     if(!gVMM) return E_UNEXPECTED;
-    if(ppPidList) return E_INVALIDARG;
+    if(!ppPidList) return E_INVALIDARG;
     if(!name) return E_INVALIDARG;
 
     PDWORD pdwPIDs = 0;
@@ -85,6 +85,10 @@ HRESULT MSS_GetModuleBase(uint64_t pid, const char* name, uint64_t* pBase) {
 }
 
 HRESULT MSS_GetModuleExports(uint64_t pid, const char* name, Export** ppExports) {
+    if(!pid) return E_INVALIDARG;
+    if(!name) return E_INVALIDARG;
+    if(!ppExports) return E_INVALIDARG;
+
     PVMMDLL_MAP_EAT pEatMap = NULL;
     PVMMDLL_MAP_EATENTRY pEatMapEntry;
 
