@@ -4,54 +4,56 @@
 #include <vmmdll.h>
 #include <stdint.h>
 
-extern VMM_HANDLE gVMM;
-
-//--- ENUMERATIONS
-
-enum MSS_LIST {MSS_LIST_PID, MSS_LIST_IMPORTS, MSS_LIST_EXPORTS};
-
 //--- STRUCTURES
 
-// PID is a linked list of process IDs
-typedef struct PID {
-    struct PID* next;
-    enum MSS_LIST type;
-    uint64_t value;
-} PID;
+// MSSContext is a global context for DMA interaction.
+typedef struct MSSContext {
+    VMM_HANDLE hVMM;
+} MSSContext, *PMSSContext;
+
+// MSSProcess represents a process on the remote machine.
+typedef struct MSSProcess {
+    PMSSContext ctx;
+    uint64_t pid;
+} MSSProcess, *PMSSProcess;
+
+
+// Process is a linked list of processes
+typedef struct Process {
+    struct Process* next;
+    PMSSProcess value;
+} Process, *PProcess;
 
 // Import is a linked list of module imports
 typedef struct Import {
     struct Import* next;
-    enum MSS_LIST type;
     const char* name;
     uint64_t address;
-} Import;
+} Import, *PImport;
 
 // Export is a linked list of module exports
 typedef struct Export {
     struct Export* next;
-    enum MSS_LIST type;
     const char* name;
     uint64_t address;
-} Export;
+} Export, *PExport;
+
+
 
 
 //--- PCIE FPGA
 
-HRESULT MSS_InitFPGA();
-HRESULT MSS_DisableMasterAbort();
+HRESULT MSS_InitFPGA(PMSSContext* pCtx);
+HRESULT MSS_DisableMasterAbort(PMSSContext ctx);
 
 //--- PROCESS
 
+HRESULT MSS_GetProcess(PMSSContext ctx, const char* name, PMSSProcess* pProcess);
+HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcess* pProcessList);
 
-
-
-
-HRESULT MSS_GetProcessId(const char* name, uint64_t* pPid);
-HRESULT MSS_GetAllProcessIds(const char* name, PID** ppPidList);
-HRESULT MSS_GetModuleBase(uint64_t pid, const char* name, uint64_t* pBase);
-HRESULT MSS_GetModuleExports(uint64_t pid, const char* name, Export** ppExports);
-HRESULT MSS_GetModuleImports(uint64_t pid, const char* name, Import** ppImports);
+HRESULT MSS_GetModuleBase(PMSSProcess process, const char* name, uint64_t* pBase);
+HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pExportList);
+HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pImportList);
 
 HRESULT MSS_Free(void* list);
 

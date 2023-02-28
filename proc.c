@@ -5,66 +5,45 @@
 #include <leechcore.h>
 #include <vmmdll.h>
 
-// createExport constructs a new export pointer in the heap for linked list allocation
-Export* createExport(const char* name, uint64_t value) {
-    Export* new = (Export*)malloc(sizeof(Export));
-    new->next = NULL;
-    new->type = MSS_LIST_EXPORTS;
-    new->name = malloc(strlen(name)+1);
-    strcpy_s(new->name, strlen(name)+1, name);
-    new->address = value;
-    return new;
-}
 
-// createImport constructs a new import pointer in the heap for linked list allocation
-Import* createImport(const char* name, uint64_t value) {
-    Import* new = (Import*)malloc(sizeof(Import));
-    new->next = NULL;
-    new->type = MSS_LIST_IMPORTS;
-    new->name = malloc(strlen(name)+1);
-    strcpy_s(new->name, strlen(name)+1, name);
-    new->address = value;
-    return new;
-}
-
-
-
-// MSS_GetProcessId returns the first matching process ID
-HRESULT MSS_GetProcessId(const char* name, uint64_t* pPid) {
-    if(!gVMM) return E_UNEXPECTED;
+// MSS_GetProcess returns the first matching process
+HRESULT MSS_GetProcess(PMSSContext ctx, const char* name, PMSSProcess* pProcess) {
+    if(!ctx || !ctx->hVMM) return E_UNEXPECTED;
     if(!name) return E_INVALIDARG;
-    if(!pPid) return E_INVALIDARG;
+    if(!pProcess) return E_INVALIDARG;
 
-    *pPid = 0; // zero out ppid before feeding it in so upper bits remain zero
+   DWORD pid = 0;
 
-    if(!VMMDLL_PidGetFromName(gVMM, name, pPid))
+    if(!VMMDLL_PidGetFromName(ctx->hVMM, name, &pid))
         return E_FAIL;
+
+    // construct process & return OK
+    *pProcess = malloc(sizeof(MSSProcess));
+    (*pProcess)->ctx = ctx;
+    (*pProcess)->pid = pid;
 
     return S_OK;
 }
 
-// MSS_GetAllProcessIds returns a linked list of all process ids with the following name
-
-
-
-HRESULT MSS_GetAllProcessIds(const char* name, PID** ppPidList) {
-    if(!gVMM) return E_UNEXPECTED;
-    if(!ppPidList) return E_INVALIDARG;
+// MSS_GetAllProcesses returns a linked list of all processes with the following name
+HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcess* pProcessList) {
+    if(!ctx || !ctx->hVMM) return E_UNEXPECTED;
     if(!name) return E_INVALIDARG;
+    if(!pProcessList) return E_INVALIDARG;
 
     PDWORD pdwPIDs = 0;
     ULONG64 cPIDs = 0;
 
-    if(!VMMDLL_PidList(gVMM, NULL, &cPIDs)) return E_FAIL;
+    if(!VMMDLL_PidList(ctx->hVMM, NULL, &cPIDs)) return E_FAIL;
 
     pdwPIDs = (PDWORD)LocalAlloc(LMEM_ZEROINIT, cPIDs * sizeof(DWORD));
-    if (!VMMDLL_PidList(gVMM, pdwPIDs, &cPIDs))
+    if (!VMMDLL_PidList(ctx->hVMM, pdwPIDs, &cPIDs))
     {
         LocalFree((HLOCAL)pdwPIDs);
         return E_FAIL;
     }
 
-    PID* current = NULL;
+    Process* current = NULL;
 
     for (DWORD i = 0; i < cPIDs; i++)
     {
@@ -74,23 +53,24 @@ HRESULT MSS_GetAllProcessIds(const char* name, PID** ppPidList) {
         SIZE_T cbInfo = sizeof(VMMDLL_PROCESS_INFORMATION);
         info.magic = VMMDLL_PROCESS_INFORMATION_MAGIC;
         info.wVersion = VMMDLL_PROCESS_INFORMATION_VERSION;
-        if (!VMMDLL_ProcessGetInformation(gVMM, dwPid, &info, &cbInfo))
+        if (!VMMDLL_ProcessGetInformation(ctx->hVMM, dwPid, &info, &cbInfo))
         {
             continue;
         }
         if(!strcmp(info.szNameLong, name))
         {
             // push entry to end of linked list (or create head if first hit)
-           PID* new = (PID*)malloc(sizeof(PID));
-           new->next = NULL;
-           new->type = MSS_LIST_PID;
-            new->value = dwPid;
-           if(current) {
-               current->next = new;
-           } else {
-               *ppPidList = new;
-           }
-           current = new;
+            Process* new = (Process*)malloc(sizeof(Process));
+            new->next = NULL;
+            new->value = (PMSSProcess)(sizeof(MSSProcess));
+            new->value->pid = dwPid;
+            new->value->ctx = ctx;
+            if(current) {
+                current->next = new;
+            } else {
+                *pProcessList = new;
+            }
+            current = new;
         }
     }
 
@@ -99,29 +79,30 @@ HRESULT MSS_GetAllProcessIds(const char* name, PID** ppPidList) {
     return S_OK;
 }
 
-HRESULT MSS_GetModuleBase(uint64_t pid, const char* name, uint64_t* pBase) {
-    if(!gVMM) return E_UNEXPECTED;
-    if(!pid) return E_INVALIDARG;
+// MSS_GetModuleBase returns the base address of a module in the process
+HRESULT MSS_GetModuleBase(PMSSProcess process, const char* name, uint64_t* pBase) {
+    if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
     if(!name) return E_INVALIDARG;
     if(!pBase) return E_INVALIDARG;
 
-    *pBase = VMMDLL_ProcessGetModuleBaseU(gVMM, pid, name);
+    *pBase = VMMDLL_ProcessGetModuleBaseU(process->ctx->hVMM, process->pid, name);
     if(!*pBase) return E_FAIL;
 
     return S_OK;
 }
 
-HRESULT MSS_GetModuleExports(uint64_t pid, const char* name, Export** ppExports) {
-    if(!pid) return E_INVALIDARG;
+// MSS_GetModuleExports returns a linked list of module exports from the export address table.
+HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pExportList) {
+    if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
     if(!name) return E_INVALIDARG;
-    if(!ppExports) return E_INVALIDARG;
+    if(!pExportList) return E_INVALIDARG;
 
     PVMMDLL_MAP_EAT pEatMap = NULL;
     PVMMDLL_MAP_EATENTRY pEatMapEntry;
 
     Export* current = NULL;
 
-    if(!VMMDLL_Map_GetEATU(gVMM, pid, name, &pEatMap))
+    if(!VMMDLL_Map_GetEATU(process->ctx->hVMM, process->pid, name, &pEatMap))
         return E_FAIL;
 
     if(pEatMap->dwVersion != VMMDLL_MAP_EAT_VERSION) {
@@ -131,11 +112,15 @@ HRESULT MSS_GetModuleExports(uint64_t pid, const char* name, Export** ppExports)
     for(int i = 0; i < pEatMap->cMap; i++) {
         pEatMapEntry = pEatMap->pMap + i;
 
-        Export* new = createExport(pEatMapEntry->uszFunction, pEatMapEntry->vaFunction);
+        Export* new = new = (Export*)malloc(sizeof(Export));
+        new->next = NULL;
+        new->name = malloc(strlen(pEatMapEntry->uszFunction)+1);
+        strcpy_s(new->name, strlen(pEatMapEntry->uszFunction)+1, pEatMapEntry->uszFunction);
+        new->address = pEatMapEntry->vaFunction;
         if(current) {
             current->next = new;
         } else {
-            *ppExports = new;
+            *pExportList = new;
         }
 
         current = new;
@@ -145,15 +130,16 @@ HRESULT MSS_GetModuleExports(uint64_t pid, const char* name, Export** ppExports)
     return S_OK;
 }
 
-HRESULT MSS_GetModuleImports(uint64_t pid, const char* name, Import** ppImports) {
-    if(!pid) return E_INVALIDARG;
+// MSS_GetModuleImports returns a linked list of module imports from the import address table.
+HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pImportList) {
+    if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
     if(!name) return E_INVALIDARG;
-    if(!ppImports) return E_INVALIDARG;
+    if(!pImportList) return E_INVALIDARG;
 
     PVMMDLL_MAP_IAT pIatMap = NULL;
     PVMMDLL_MAP_IATENTRY pIatMapEntry;
 
-    if(!VMMDLL_Map_GetIATU(gVMM, pid, name, &pIatMap))
+    if(!VMMDLL_Map_GetIATU(process->ctx->hVMM, process->pid, name, &pIatMap))
         return E_FAIL;
 
     if(pIatMap->dwVersion != VMMDLL_MAP_IAT_VERSION) {
@@ -166,11 +152,15 @@ HRESULT MSS_GetModuleImports(uint64_t pid, const char* name, Import** ppImports)
     for(int i = 0; i < pIatMap->cMap; i++) {
         pIatMapEntry = pIatMap->pMap + i;
 
-        Import* new = createImport(pIatMapEntry->uszFunction, pIatMapEntry->vaFunction);
+        Import* new = (Import*)malloc(sizeof(Import));
+        new->next = NULL;
+        new->name = malloc(strlen(pIatMapEntry->uszFunction)+1);
+        strcpy_s(new->name, strlen(pIatMapEntry->uszFunction)+1, pIatMapEntry->uszFunction);
+        new->address = pIatMapEntry->vaFunction;
         if(current) {
             current->next = new;
         } else {
-            *ppImports = new;
+            *pImportList = new;
         }
 
         current = new;
