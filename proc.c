@@ -130,6 +130,25 @@ HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pEx
     return S_OK;
 }
 
+// MSS_GetModuleExport returns the address pointed to by the export with the specified name
+HRESULT MSS_GetModuleExport(PMSSProcess process, const char* module, const char* export, uint64_t* pAddress) {
+    PExport exports;
+    HRESULT hr = MSS_GetModuleExports(process, module, &exports);
+    if(FAILED(hr)) return hr;
+
+    Export* current = exports;
+    while(current) {
+        if(!strcmp(current->name,export)) {
+            *pAddress = current->address;
+            break;
+        }
+        current = current->next;
+    }
+
+    MSS_Free(exports);
+    return S_OK;
+}
+
 // MSS_GetModuleImports returns a linked list of module imports from the import address table.
 HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pImportList) {
     if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
@@ -167,6 +186,25 @@ HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pIm
     }
 
     VMMDLL_MemFree(pIatMap);
+    return S_OK;
+}
+
+// MSS_GetModuleImport returns the address pointed to by the import with the specified name
+HRESULT MSS_GetModuleImport(PMSSProcess process, const char* module, const char* export, uint64_t* pAddress) {
+    PImport imports;
+    HRESULT hr = MSS_GetModuleImports(process, module, &imports);
+    if(FAILED(hr)) return hr;
+
+    Import* current = imports;
+    while(current) {
+        if(!strcmp(current->name,export)) {
+            *pAddress = current->address;
+            break;
+        }
+        current = current->next;
+    }
+
+    MSS_Free(imports);
     return S_OK;
 }
 

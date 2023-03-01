@@ -70,7 +70,9 @@ HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcess* pProces
 
 HRESULT MSS_GetModuleBase(PMSSProcess process, const char* name, uint64_t* pBase);
 HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pExportList);
+HRESULT MSS_GetModuleExport(PMSSProcess process, const char* module, const char* export, uint64_t* pAddress);
 HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pImportList);
+HRESULT MSS_GetModuleImport(PMSSProcess process, const char* module, const char* export, uint64_t* pAddress);
 HRESULT MSS_GetProcessModules(PMSSProcess process, PModule* pModuleList);
 
 
