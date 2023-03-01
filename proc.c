@@ -170,7 +170,41 @@ HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pIm
     return S_OK;
 }
 
-// TODO:
+
 HRESULT MSS_GetProcessModules(PMSSProcess process, PModule* pModuleList) {
-    return E_NOTIMPL;
+    if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
+    if(!pModuleList) return E_INVALIDARG;
+
+    PVMMDLL_MAP_MODULE pModuleMap = NULL;
+    PVMMDLL_MAP_MODULEENTRY pModuleEntry;
+
+    if(!VMMDLL_Map_GetModuleU(process->ctx->hVMM, process->pid, &pModuleMap, 0))
+        return E_FAIL;
+
+    if(pModuleMap->dwVersion != VMMDLL_MAP_MODULE_VERSION) {
+        VMMDLL_MemFree(pModuleMap);
+        return E_FAIL;
+    }
+
+    Module* current = NULL;
+
+    for(int i = 0; i < pModuleMap->cMap;i++) {
+        pModuleEntry = pModuleMap->pMap + i;
+
+        Module* new = (Module*)malloc(sizeof(Module));
+        new->next = NULL;
+        new->name = malloc(strlen(pModuleEntry->uszText)+1);
+        strcpy_s(new->name, strlen(pModuleEntry->uszText)+1, pModuleEntry->uszText);
+
+        if(current) {
+            current->next = new;
+        } else {
+            *pModuleList = new;
+        }
+
+        current = new;
+    }
+
+    VMMDLL_MemFree(pModuleMap);
+    return S_OK;
 }

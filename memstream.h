@@ -78,10 +78,11 @@ HRESULT MSS_ReadSingle(PMSSProcess process, uint64_t address, void* buffer, size
 HRESULT MSS_ReadMany(PMSSProcess process, PReadOp reads);
 
 HRESULT MSS_NewReadOp(uint64_t address, void* buffer, size_t size, PReadOp* pReadOp);
+HRESULT MSS_FreeReadOp(PReadOp read);
 HRESULT MSS_InsertReadOp(PReadOp parent, PReadOp read);
 HRESULT MSS_CreateReadOps(uint64_t addresses[], void* buffers[], size_t sizes[], size_t count, PReadOp* pReads);
 
-//TODO: memory read/write helpers
+//TODO: write
 
 //TODO: memory routines (findpattern)
 

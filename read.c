@@ -45,33 +45,32 @@ HRESULT MSS_ReadSingle(PMSSProcess process, uint64_t address, void* buffer, size
     return S_OK;
 }
 
-// ----- I DONT KNOW IF BELOW IS HOW I WANT TO HANDLE SCATTER READS
-
+// --- structures help with scatter read hashmap logic
 
 typedef struct page_read {
     uint64_t address; // page address
     void* buffer; // page sized buffer
 } page_read;
 int page_compare(const void* a, const void* b, void* udata) {
-    page_read *pa = a;
-    page_read *pb = b;
-    if(pa->address = pb->address) return 0;
+    const page_read *pa = a;
+    const page_read *pb = b;
+    if(pa->address == pb->address) return 0;
     return (pa->address-pb->address > 0) ? 1 : -1;
 }
 uint64_t page_hash(const void *item, uint64_t seed0, uint64_t seed1) {
-    page_read *page = item;
+    const page_read *page = item;
     return hashmap_sip(&page->address, sizeof(uint64_t), seed0, seed1);
 }
 
 
-// extractPageTargets builds a hashmap of page_read objects
+// extractTargets builds a hashmap of page_read objects
 // consisting of unique page addresses that would need to be read to fulfil all reads
-struct hashmap* extractPageTargets(ReadOp* reads) {
+struct hashmap* extractTargets(ReadOp* reads) {
     if(!reads) return NULL;
 
     ReadOp* current = reads;
 
-    struct hashmap* targets = hashmap_new(sizeof(page_read), 0, 0, 0, page_hash, page_compare, NULL, NULL);
+    struct hashmap* targets = hashmap_new(sizeof(page_read), 0, 0, 0, page_hash, page_compare, free, NULL);
 
     while (current) {
         uint64_t start = current->address; // inclusive first byte to read
@@ -86,7 +85,14 @@ struct hashmap* extractPageTargets(ReadOp* reads) {
             uint64_t page = start_page + (0x1000 * i);
 
             // insert pages into hashmap w/ NULL buffer pointers
-            hashmap_set(targets, &(page_read){ .address=page, .buffer=NULL });
+            page_read* element = malloc(sizeof(page_read));
+            if(!element) {
+                hashmap_free(targets);
+                return NULL;
+            }
+            element->address = page;
+            element->buffer = NULL;
+            hashmap_set(targets, element);
         }
 
         current=current->next;
@@ -95,56 +101,13 @@ struct hashmap* extractPageTargets(ReadOp* reads) {
     return targets;
 }
 
-
-// MSS_ReadMany will do a single read DMA request to read many addresses
-HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
-    if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
+// parseTargets populates read buffers with content in the hashmap of page data
+HRESULT parseTargets(ReadOp* reads, struct hashmap* pages) {
     if(!reads) return E_INVALIDARG;
-
-    // build a hashmap of all unique pages we'd need to read to fulfill all ops
-    struct hashmap* targets = extractPageTargets(reads);
-    if(!targets) return E_FAIL;
-
-    size_t read_size = 0x1000 * hashmap_count(targets);
-
-    // allocate a single buffer for all reads to write into
-    void* read_buffer = malloc(read_size);
-    if(!read_buffer) {
-        //TODO: free allocs
-        return E_FAIL;
-    }
-
-    // allocate scatter structure using our single read_buffer for storage
-    PPMEM_SCATTER ppMEMs = NULL;
-    if(!LcAllocScatter2(read_size, read_buffer, hashmap_count(targets),&ppMEMs))
-    {
-        //TODO: free allocs
-        return E_FAIL;
-    }
-
-    // set scatter and hashmap pointers
-    size_t iter = 0;
-    void *item;
-    while (hashmap_iter(targets, &iter, &item)) {
-        page_read *page = item;
-        page->buffer = ppMEMs[iter]->pb; // point page buffer to the same region ppMEMs writes to
-        ppMEMs[iter]->qwA = page->address; // point ppMEMs read address to the same as the page expects
-    }
-
-    // at this point a memreadscatter should populate read_buffer and the contents of each page read should be accessable via targets map
-    if (!VMMDLL_MemReadScatter(
-            process->ctx->hVMM,
-            process->pid,
-            ppMEMs,
-            hashmap_count(targets),
-            MSS_READ_FLAGS | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
-        //TODO: free allocs
-        return E_FAIL;
-    }
+    if(!pages) return E_INVALIDARG;
 
     ReadOp* current = reads;
 
-    // parse our targets (read scattered pages) into read op buffers
     while(current) {
         uint64_t op_address = current->address;
         void* op_buffer = current->buffer;
@@ -157,7 +120,7 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
         size_t total_bytes_read = 0;
         for(uint64_t i = 0; i < num_pages; i++) {
             uint64_t page = start_page + (0x1000 * i);
-            page_read* read_data = hashmap_get(targets, &(page_read){ .address=page });
+            page_read* read_data = hashmap_get(pages, &(page_read){ .address=page });
             if(!read_data) {
                 ZeroMemory(op_buffer, op_size); // read failure zero output buffer
                 continue;
@@ -188,12 +151,71 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
         current=current->next;
     }
 
+    return S_OK;
+}
 
-    // VMMDLL_MemReadScatter(... MSS_READ_FLAGS);
 
-    free(read_buffer); // release temporary read buffer
-    //TODO: free other allocations
-    return E_NOTIMPL;
+// MSS_ReadMany will do a single read DMA request to read many addresses
+// NOTE: if you read multiple values from the same page, it's more efficient to combine them into a larger buffer.
+HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
+    if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
+    if(!reads) return E_INVALIDARG;
+
+    // build a hashmap of all unique pages we'd need to read to fulfill all ops
+    struct hashmap* targets = extractTargets(reads);
+    if(!targets) return E_FAIL;
+
+    size_t read_size = 0x1000 * hashmap_count(targets);
+
+    // allocate a single buffer for all reads to write into
+    void* read_buffer = malloc(read_size);
+    if(!read_buffer) {
+        hashmap_free(targets);
+        return E_FAIL;
+    }
+
+    // allocate scatter structure using our single read_buffer for storage
+    PPMEM_SCATTER ppMEMs = NULL;
+    if(!LcAllocScatter2(read_size, read_buffer, hashmap_count(targets),&ppMEMs))
+    {
+        free(read_buffer);
+        hashmap_free(targets);
+        return E_FAIL;
+    }
+
+    // link scatter and hashmap pointers
+    size_t iter = 0;
+    void *item;
+    while (hashmap_iter(targets, &iter, &item)) {
+        page_read *page = item;
+        page->buffer = ppMEMs[iter]->pb; // point page buffer to the same region ppMEMs writes to
+        ppMEMs[iter]->qwA = page->address; // point ppMEMs read address to the same as the page expects
+    }
+
+    // at this point a memreadscatter should populate read_buffer and the contents of each page read should be accessable via targets map
+    if (!VMMDLL_MemReadScatter(
+            process->ctx->hVMM,
+            process->pid,
+            ppMEMs,
+            hashmap_count(targets),
+            MSS_READ_FLAGS | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
+        LocalFree(ppMEMs);
+        free(read_buffer);
+        hashmap_free(targets);
+        return E_FAIL;
+    }
+
+    if(FAILED(parseTargets(reads, targets))) {
+        LocalFree(ppMEMs);
+        free(read_buffer);
+        hashmap_free(targets);
+        return E_FAIL;
+    }
+
+    LocalFree(ppMEMs);
+    free(read_buffer);
+    hashmap_free(targets);
+    return S_OK;
 }
 
 // MSS_NewReadOp constructs a read operation for use with MSS_ReadMany
@@ -212,6 +234,30 @@ HRESULT MSS_NewReadOp(uint64_t address, void* buffer, size_t size, PReadOp* pRea
     // no links
     (*pReadOp)->next = NULL;
     (*pReadOp)->prev = NULL;
+
+    return S_OK;
+}
+
+// MSS_FreeReadOp releases the read operation - stitching back together any linked list pointers
+HRESULT MSS_FreeReadOp(PReadOp read) {
+    if(!read) return E_INVALIDARG;
+    // relink list depending on any links set in read we're freeing
+    if(read->prev && read->prev->next == read && read->next && read->next->prev == read) {
+       ReadOp* next = read->next;
+       ReadOp* prev = read->prev;
+
+       prev->next = next;
+       next->prev = prev;
+    } else if(read->prev && read->prev->next == read) {
+        read->prev->next = NULL;
+    } else if(read->next && read->next->prev == read) {
+        read->next->prev = NULL;
+    }
+
+    if(read->buffer) free(read->buffer);
+
+    read->buffer = NULL;
+    free(read);
 
     return S_OK;
 }
