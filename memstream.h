@@ -38,7 +38,20 @@ typedef struct Export {
     uint64_t address;
 } Export, *PExport;
 
+// Module is a linked list of module names
+typedef struct Module {
+    struct Module* next;
+    const char* name;
+} Module, *PModule;
 
+// ReadOp is a double linked list of read operations for scatter reading
+typedef struct ReadOp {
+    struct ReadOp* next; // NULL if tail
+    struct ReadOp* prev; // NULL if head
+    void* buffer;
+    int64_t address;
+    size_t size;
+} ReadOp, *PReadOp;
 
 
 //--- PCIE FPGA
@@ -54,8 +67,19 @@ HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcess* pProces
 HRESULT MSS_GetModuleBase(PMSSProcess process, const char* name, uint64_t* pBase);
 HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pExportList);
 HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pImportList);
+HRESULT MSS_GetProcessModules(PMSSProcess process, PModule* pModuleList);
+
 
 HRESULT MSS_Free(void* list);
+
+//--- READ
+
+HRESULT MSS_ReadSingle(PMSSProcess process, uint64_t address, void* buffer, size_t size);
+HRESULT MSS_ReadMany(PMSSProcess process, PReadOp reads);
+
+HRESULT MSS_NewReadOp(uint64_t address, void* buffer, size_t size, PReadOp* pReadOp);
+HRESULT MSS_InsertReadOp(PReadOp parent, PReadOp read);
+HRESULT MSS_CreateReadOps(uint64_t addresses[], void* buffers[], size_t sizes[], size_t count, PReadOp* pReads);
 
 //TODO: memory read/write helpers
 

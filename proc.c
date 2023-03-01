@@ -169,3 +169,8 @@ HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pIm
     VMMDLL_MemFree(pIatMap);
     return S_OK;
 }
+
+// TODO:
+HRESULT MSS_GetProcessModules(PMSSProcess process, PModule* pModuleList) {
+    return E_NOTIMPL;
+}

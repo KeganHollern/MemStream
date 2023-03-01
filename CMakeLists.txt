@@ -3,7 +3,13 @@ project(MemStream C)
 
 set(CMAKE_C_STANDARD 17)
 
-add_library(MemStream pcie.c proc.c)
+add_library(MemStream
+        pcie.c
+        proc.c
+        util.c
+        read.c
+        hashmap.c
+        )
 
 
 include_directories(includes)

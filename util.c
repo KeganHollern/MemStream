@@ -5,7 +5,6 @@
 #include <leechcore.h>
 #include <vmmdll.h>
 
-
 typedef struct msslist {
     struct msslist* next;
     void* buffer;
