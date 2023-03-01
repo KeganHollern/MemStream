@@ -14,7 +14,7 @@ HRESULT MSS_GetProcess(PMSSContext ctx, const char* name, PMSSProcess* pProcess)
 
    DWORD pid = 0;
 
-    if(!VMMDLL_PidGetFromName(ctx->hVMM, name, &pid))
+    if(!VMMDLL_PidGetFromName(ctx->hVMM, (char*)name, &pid))
         return E_FAIL;
 
     // construct process & return OK
@@ -85,7 +85,7 @@ HRESULT MSS_GetModuleBase(PMSSProcess process, const char* name, uint64_t* pBase
     if(!name) return E_INVALIDARG;
     if(!pBase) return E_INVALIDARG;
 
-    *pBase = VMMDLL_ProcessGetModuleBaseU(process->ctx->hVMM, process->pid, name);
+    *pBase = VMMDLL_ProcessGetModuleBaseU(process->ctx->hVMM, process->pid, (char*)name);
     if(!*pBase) return E_FAIL;
 
     return S_OK;
@@ -102,7 +102,7 @@ HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pEx
 
     Export* current = NULL;
 
-    if(!VMMDLL_Map_GetEATU(process->ctx->hVMM, process->pid, name, &pEatMap))
+    if(!VMMDLL_Map_GetEATU(process->ctx->hVMM, process->pid, (char*)name, &pEatMap))
         return E_FAIL;
 
     if(pEatMap->dwVersion != VMMDLL_MAP_EAT_VERSION) {
@@ -115,7 +115,7 @@ HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pEx
         Export* new = new = (Export*)malloc(sizeof(Export));
         new->next = NULL;
         new->name = malloc(strlen(pEatMapEntry->uszFunction)+1);
-        strcpy_s(new->name, strlen(pEatMapEntry->uszFunction)+1, pEatMapEntry->uszFunction);
+        strcpy_s((char*)new->name, strlen(pEatMapEntry->uszFunction)+1, pEatMapEntry->uszFunction);
         new->address = pEatMapEntry->vaFunction;
         if(current) {
             current->next = new;
@@ -139,7 +139,7 @@ HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pIm
     PVMMDLL_MAP_IAT pIatMap = NULL;
     PVMMDLL_MAP_IATENTRY pIatMapEntry;
 
-    if(!VMMDLL_Map_GetIATU(process->ctx->hVMM, process->pid, name, &pIatMap))
+    if(!VMMDLL_Map_GetIATU(process->ctx->hVMM, process->pid, (char*)name, &pIatMap))
         return E_FAIL;
 
     if(pIatMap->dwVersion != VMMDLL_MAP_IAT_VERSION) {
@@ -155,7 +155,7 @@ HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pIm
         Import* new = (Import*)malloc(sizeof(Import));
         new->next = NULL;
         new->name = malloc(strlen(pIatMapEntry->uszFunction)+1);
-        strcpy_s(new->name, strlen(pIatMapEntry->uszFunction)+1, pIatMapEntry->uszFunction);
+        strcpy_s((char*)new->name, strlen(pIatMapEntry->uszFunction)+1, pIatMapEntry->uszFunction);
         new->address = pIatMapEntry->vaFunction;
         if(current) {
             current->next = new;
@@ -194,7 +194,7 @@ HRESULT MSS_GetProcessModules(PMSSProcess process, PModule* pModuleList) {
         Module* new = (Module*)malloc(sizeof(Module));
         new->next = NULL;
         new->name = malloc(strlen(pModuleEntry->uszText)+1);
-        strcpy_s(new->name, strlen(pModuleEntry->uszText)+1, pModuleEntry->uszText);
+        strcpy_s((char*)new->name, strlen(pModuleEntry->uszText)+1, pModuleEntry->uszText);
 
         if(current) {
             current->next = new;

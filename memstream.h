@@ -59,6 +59,10 @@ typedef struct ReadOp {
 HRESULT MSS_InitFPGA(PMSSContext* pCtx);
 HRESULT MSS_DisableMasterAbort(PMSSContext ctx);
 
+//--- UTILS
+
+void MSS_PrintBuffer(void* buffer, size_t size);
+
 //--- PROCESS
 
 HRESULT MSS_GetProcess(PMSSContext ctx, const char* name, PMSSProcess* pProcess);
@@ -95,5 +99,6 @@ HRESULT MSS_CreateReadOps(uint64_t addresses[], void* buffers[], size_t sizes[],
 //TODO: directx rework
 
 //TODO: functionrunner rework
+
 
 #endif //MEMSTREAM_MEMSTREAM_H
