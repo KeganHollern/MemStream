@@ -1,6 +1,5 @@
 #include "memstream.h"
 
-#include <stdio.h>
 #include <stdint.h>
 #include <Windows.h>
 #include <leechcore.h>
@@ -162,48 +161,35 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
     if(!reads) return E_INVALIDARG;
 
-
-
     // build a hashmap of all unique pages we'd need to read to fulfill all ops
-    printf("\tMemStream: building hashmap\n");
     struct hashmap* targets = extractTargets(reads);
-    printf("\tMemStream: targets: 0x%p\n", (void*)targets);
     if(!targets) return E_FAIL;
 
     size_t read_size = 0x1000 * hashmap_count(targets);
-    printf("\tMemStream: read size: %zu\n", read_size);
 
     // allocate a single buffer for all reads to write into
-    printf("\tMemStream: allocatting buffer\n");
     void* read_buffer = malloc(read_size);
     if(!read_buffer) {
-        printf("\tMemStream: failed to build buffer\n");
         hashmap_free(targets);
         return E_FAIL;
     }
 
     // allocate scatter structure using our single read_buffer for storage
-    printf("\tMemStream: allocating scatter\n");
     PPMEM_SCATTER ppMEMs = NULL;
     if(!LcAllocScatter2(read_size, read_buffer, hashmap_count(targets),&ppMEMs))
     {
-        printf("\tMemStream: failed to alloc scatter\n");
         free(read_buffer);
         hashmap_free(targets);
         return E_FAIL;
     }
 
     // link scatter and hashmap pointers
-    printf("\tMemStream: linking scatter elements\n");
     size_t iter = 0;
     void *item;
     int idx = 0;
     while (hashmap_iter(targets, &iter, &item)) {
-
-        printf("\tMemStream: iterating map elements %zu\n", iter);
         page_read *page = item;
         if(!page) {
-            printf("\tMemStream: null element in hashmap?!\n");
             continue;
         }
         page->buffer = ppMEMs[idx]->pb; // point page buffer to the same region ppMEMs writes to
@@ -212,39 +198,28 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     }
 
     // at this point a memreadscatter should populate read_buffer and the contents of each page read should be accessable via targets map
-    printf("\tMemStream: reading\n");
     if (!VMMDLL_MemReadScatter(
             process->ctx->hVMM,
             process->pid,
             ppMEMs,
             hashmap_count(targets),
             MSS_READ_FLAGS | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
-
-        printf("\tMemStream: failed scatter read\n");
         LocalFree(ppMEMs);
         free(read_buffer);
         hashmap_free(targets);
         return E_FAIL;
     }
 
-    printf("\tMemStream: parsing read data\n");
     if(FAILED(parseTargets(reads, targets))) {
-
-        printf("\tMemStream: failed to parse output buffers\n");
         LocalFree(ppMEMs);
         free(read_buffer);
         hashmap_free(targets);
         return E_FAIL;
     }
 
-
-    printf("\tMemStream: success\n");
     LocalFree(ppMEMs);
-    printf("\tMemStream: ppMEMs free\n");
     free(read_buffer);
-    printf("\tMemStream: read_buffer free\n");
     hashmap_free(targets);
-    printf("\tMemStream: targets free\n");
     return S_OK;
 }
 
