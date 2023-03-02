@@ -259,9 +259,6 @@ HRESULT MSS_FreeReadOp(PReadOp read) {
         read->next->prev = NULL;
     }
 
-    if(read->buffer) free(read->buffer);
-
-    read->buffer = NULL;
     free(read);
 
     return S_OK;
@@ -308,7 +305,7 @@ HRESULT MSS_CreateReadOps(uint64_t addresses[], void* buffers[], size_t sizes[],
         if(current) {
             current->next = new;
         } else {
-            *pReads = current;
+            *pReads = new;
         }
 
         current = new;
