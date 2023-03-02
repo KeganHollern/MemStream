@@ -1,5 +1,6 @@
 #include "memstream.h"
 
+#include <stdio.h>
 #include <stdint.h>
 #include <Windows.h>
 #include <leechcore.h>
@@ -92,7 +93,8 @@ struct hashmap* extractTargets(ReadOp* reads) {
             }
             element->address = page;
             element->buffer = NULL;
-            hashmap_set(targets, element);
+            page_read* replaced = hashmap_set(targets, element);
+            if(replaced) free(replaced);
         }
 
         current=current->next;
@@ -162,14 +164,19 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     if(!reads) return E_INVALIDARG;
 
     // build a hashmap of all unique pages we'd need to read to fulfill all ops
+    printf("\tMemStream: extracting targets from reads...\n");
     struct hashmap* targets = extractTargets(reads);
     if(!targets) return E_FAIL;
 
-    size_t read_size = 0x1000 * hashmap_count(targets);
+    size_t num_targets = hashmap_count(targets);
+    printf("\tMemStream: reading %zu targets...\n", num_targets);
+
+    size_t read_size = 0x1000 * num_targets;
 
     // allocate a single buffer for all reads to write into
     void* read_buffer = malloc(read_size);
     if(!read_buffer) {
+        printf("\tMemStream: failed to allocate read buffer");
         hashmap_free(targets);
         return E_FAIL;
     }
@@ -178,6 +185,7 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     PPMEM_SCATTER ppMEMs = NULL;
     if(!LcAllocScatter2(read_size, read_buffer, hashmap_count(targets),&ppMEMs))
     {
+        printf("\tMemStream: failed to allocate scatter buffer");
         free(read_buffer);
         hashmap_free(targets);
         return E_FAIL;
@@ -190,6 +198,7 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     while (hashmap_iter(targets, &iter, &item)) {
         page_read *page = item;
         if(!page) {
+            printf("\tMemStream: iterator returned null item?");
             continue;
         }
         page->buffer = ppMEMs[idx]->pb; // point page buffer to the same region ppMEMs writes to
@@ -204,20 +213,23 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
             ppMEMs,
             hashmap_count(targets),
             MSS_READ_FLAGS | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
-        LocalFree(ppMEMs);
+        printf("\tMemStream: VMM scatter read failed");
+        LcMemFree(ppMEMs);
         free(read_buffer);
         hashmap_free(targets);
         return E_FAIL;
     }
 
     if(FAILED(parseTargets(reads, targets))) {
-        LocalFree(ppMEMs);
+        printf("\tMemStream: failed to parse targets");
+        LcMemFree(ppMEMs);
         free(read_buffer);
         hashmap_free(targets);
         return E_FAIL;
     }
 
-    LocalFree(ppMEMs);
+    printf("\tMemStream: freeing VMM buffer...\n");
+    LcMemFree(ppMEMs);
     free(read_buffer);
     hashmap_free(targets);
     return S_OK;
