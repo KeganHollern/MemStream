@@ -71,21 +71,21 @@ struct hashmap* extractTargets(ReadOp* reads) {
 
     ReadOp* current = reads;
 
-    //printf("MemStream: constructing hashmap\n");
+    //printf("\tMemStream: constructing hashmap\n");
     struct hashmap* targets = hashmap_new(sizeof(page_read), 0, 0, 0, page_hash, page_compare, NULL, NULL);
 
-    //printf("MemStream: iterating reads\n");
+    //printf("\tMemStream: iterating reads\n");
     while (current) {
         uint64_t start = current->address; // inclusive first byte to read
         uint64_t stop = current->address + current->size - 0x1; // inclusive last byte to read
 
-       // printf("MemStream: extracting read at 0x%p\n", (void*)start);
+        //printf("\tMemStream: extracting read at 0x%p\n", (void*)start);
 
         uint64_t start_page = page_head(start); // page containing START byte to read
         uint64_t end_page = page_tail(stop); // first page *NOT* containing END byte to read
 
         uint64_t num_pages = (end_page - start_page) / 0x1000; // 0x2000 - 0x1000 / 0x1000 = 1 -- 1 page to read starting at start_page
-        // printf("MemStream: read will start at 0x%p and take %llu pages\n", (void*)start_page, num_pages);
+         //printf("\tMemStream: read will start at 0x%p and take %llu pages\n", (void*)start_page, num_pages);
 
 
         for(uint64_t i = 0; i < num_pages; i++) {
@@ -101,7 +101,7 @@ struct hashmap* extractTargets(ReadOp* reads) {
             element->buffer = NULL;
             page_read* replaced = hashmap_set(targets, element);
             if(replaced) {
-                //printf("MemStream: page at 0x%p previously included in targets!\n", (void*)page);
+                //printf("\tMemStream: page at 0x%p previously included in targets!\n", (void*)page);
                 //free(replaced);
                 // TODO: figure out how to free elements otherwise we continue to leak mem :(
             }
@@ -109,7 +109,7 @@ struct hashmap* extractTargets(ReadOp* reads) {
 
         current = current->next;
     }
-   // printf("MemStream: done extracting targets\n");
+    //printf("\tMemStream: done extracting targets\n");
 
     return targets;
 }
@@ -121,10 +121,14 @@ HRESULT parseTargets(ReadOp* reads, struct hashmap* pages) {
 
     ReadOp* current = reads;
 
+    //printf("\tMemStream: parsing targets...\n");
+
     while(current) {
         uint64_t op_address = current->address;
         void* op_buffer = current->buffer;
         size_t op_size = current->size;
+
+        //printf("\tMemStream: extracting %zu bytes at 0x%p...\n", op_size, (void*)op_address);
 
         uint64_t start_page = page_head(op_address);
         uint64_t end_page = page_tail(op_address + op_size - 0x1);
@@ -135,6 +139,7 @@ HRESULT parseTargets(ReadOp* reads, struct hashmap* pages) {
             uint64_t page = start_page + (0x1000 * i);
             page_read* read_data = hashmap_get(pages, &(page_read){ .address=page });
             if(!read_data) {
+                //printf("\tMemStream: failed to parse page 0x%p...\n", (void*)page);
                 ZeroMemory(op_buffer, op_size); // read failure zero output buffer
                 continue;
             }
@@ -143,15 +148,17 @@ HRESULT parseTargets(ReadOp* reads, struct hashmap* pages) {
             uint64_t page_read_start = 0; // which byte we want start reading at
             size_t page_read_len = 0x1000; // how many bytes to want to read from this page
 
+
+
             if(i == 0) {
                 page_read_start = page_offset(op_address); // start reading page_offset bytes into this first page
-                page_read_len -= page_read_start; // subtract offset start from total length of read
+                page_read_len -= (size_t)page_read_start; // subtract offset start from total length of read // 0xFB8
             }
             if(i == (num_pages-1)) {
-                // last page - length is not full page
-                page_read_len -= op_size - total_bytes_read;
+                page_read_len = (op_size - total_bytes_read);
             }
 
+            //printf("\tMemStream: extracting %zu bytes from 0x%p @ 0x%p...\n", page_read_len, (void*)page, (void*)page_read_start);
             // copy data from page buffer to operation buffer
             void* dest_buffer_after_offset = (void*)((uint64_t)op_buffer + total_bytes_read);
             void* source_buffer_after_read_start = (void*)((uint64_t)page_buffer + page_read_start);
@@ -164,6 +171,7 @@ HRESULT parseTargets(ReadOp* reads, struct hashmap* pages) {
         current=current->next;
     }
 
+    //printf("\tMemStream: done extracting targets...\n");
     return S_OK;
 }
 
@@ -180,14 +188,14 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     if(!targets) return E_FAIL;
 
     size_t num_targets = hashmap_count(targets);
-   // printf("\tMemStream: reading %zu targets...\n", num_targets);
+    //printf("\tMemStream: reading %zu targets...\n", num_targets);
 
     size_t read_size = 0x1000 * num_targets;
 
     // allocate a single buffer for all reads to write into
     void* read_buffer = malloc(read_size);
     if(!read_buffer) {
-    //    printf("\tMemStream: failed to allocate read buffer");
+        //printf("\tMemStream: failed to allocate read buffer");
         hashmap_free(targets);
         return E_FAIL;
     }
@@ -196,7 +204,7 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     PPMEM_SCATTER ppMEMs = NULL;
     if(!LcAllocScatter2(read_size, read_buffer, hashmap_count(targets),&ppMEMs))
     {
-    //    printf("\tMemStream: failed to allocate scatter buffer");
+        //printf("\tMemStream: failed to allocate scatter buffer");
         free(read_buffer);
         hashmap_free(targets);
         return E_FAIL;
@@ -209,7 +217,7 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     while (hashmap_iter(targets, &iter, &item)) {
         page_read *page = item;
         if(!page) {
-        //    printf("\tMemStream: iterator returned null item?");
+            //printf("\tMemStream: iterator returned null item?");
             continue;
         }
         page->buffer = ppMEMs[idx]->pb; // point page buffer to the same region ppMEMs writes to
@@ -224,7 +232,7 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
             ppMEMs,
             hashmap_count(targets),
             MSS_READ_FLAGS | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
-      //  printf("\tMemStream: VMM scatter read failed");
+        //printf("\tMemStream: VMM scatter read failed");
         LcMemFree(ppMEMs);
         free(read_buffer);
         hashmap_free(targets);
@@ -232,14 +240,14 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     }
 
     if(FAILED(parseTargets(reads, targets))) {
-  //      printf("\tMemStream: failed to parse targets");
+        //printf("\tMemStream: failed to parse targets");
         LcMemFree(ppMEMs);
         free(read_buffer);
         hashmap_free(targets);
         return E_FAIL;
     }
 
-  //  printf("\tMemStream: freeing VMM buffer...\n");
+    //printf("\tMemStream: freeing VMM buffer...\n");
     LcMemFree(ppMEMs);
     free(read_buffer);
     hashmap_free(targets);
@@ -293,12 +301,15 @@ HRESULT MSS_InsertReadOp(PReadOp parent, PReadOp newchild) {
     if(!parent) return E_INVALIDARG;
     if(!newchild) return E_INVALIDARG;
 
-    PReadOp oldchild = parent->next;
 
-    parent->next = newchild;// parent points to new
-    newchild->prev = parent; // new points back to parent
-    newchild->next = oldchild; // new points to old
-    oldchild->prev = newchild; // old points back to new
+    newchild->next = parent->next;
+    newchild->prev = parent;
+
+
+    if(parent->next) {
+        parent->next->prev = newchild;
+    }
+    parent->next = newchild;
 
     return S_OK;
 }
