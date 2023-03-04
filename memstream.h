@@ -82,6 +82,21 @@ HRESULT MSS_Free(void* list);
 //--- READ
 
 HRESULT MSS_ReadSingle(PMSSProcess process, uint64_t address, void* buffer, size_t size);
+
+
+
+
+// --- I don't like this readop system
+// at least it's not particularly friendly - so I want to move this out of the lowlevel manyread routine
+// instead ReadMany should take in the args that CreateReadOps does
+
+// ideally -- the readop array should be dynamically alocated so i can just feed in values into the readmany
+//
+// ReadOps array is like:
+// { uint64_t* pAddressArray, void** bufferArray, size_t* sizeArray, size_t size, size_t capacity }
+//
+
+
 HRESULT MSS_ReadMany(PMSSProcess process, PReadOp reads);
 
 HRESULT MSS_NewReadOp(uint64_t address, void* buffer, size_t size, PReadOp* pReadOp);
