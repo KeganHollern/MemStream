@@ -8,11 +8,11 @@
 
 #include "hashmap.h"
 
-// page_head takes any address and returns the first address in the same page on a 64 bit windows machine
+// page_head takes any address and returns the first address in the same page on a 64-bit Windows machine
 uint64_t page_head(uint64_t address) {
     return address & (UINT64_MAX << 12);
 }
-// page_tile takes any address and returns the first address in the next page on a 64 bit windows machine
+// page_tile takes any address and returns the first address in the next page on a 64-bit Windows machine
 uint64_t page_tail(uint64_t address) {
     return page_head(address) + 0x1000;
 }
@@ -21,9 +21,6 @@ uint64_t page_offset(uint64_t address) {
 }
 
 ULONG64 MSS_READ_FLAGS = VMMDLL_FLAG_NO_PREDICTIVE_READ | VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_NOPAGING | VMMDLL_FLAG_NOCACHEPUT;
-
-
-
 
 
 // MSS_ReadSingle reads a single address into a buffer.
@@ -46,6 +43,7 @@ HRESULT MSS_ReadSingle(PMSSProcess process, uint64_t address, void* buffer, size
     return S_OK;
 }
 
+
 // --- structures help with scatter read hashmap logic
 
 typedef struct page_read {
@@ -66,18 +64,19 @@ uint64_t page_hash(const void *item, uint64_t seed0, uint64_t seed1) {
 
 // extractTargets builds a hashmap of page_read objects
 // consisting of unique page addresses that would need to be read to fulfil all reads
-struct hashmap* extractTargets(ReadOp* reads) {
-    if(!reads) return NULL;
+struct hashmap* extractTargets(uint64_t* addresses, size_t* sizes, size_t count) {
+    if(!addresses) return NULL;
+    if(!sizes) return NULL;
+    if(!count) return NULL;
 
-    ReadOp* current = reads;
 
     //printf("\tMemStream: constructing hashmap\n");
     struct hashmap* targets = hashmap_new(sizeof(page_read), 0, 0, 0, page_hash, page_compare, NULL, NULL);
 
     //printf("\tMemStream: iterating reads\n");
-    while (current) {
-        uint64_t start = current->address; // inclusive first byte to read
-        uint64_t stop = current->address + current->size - 0x1; // inclusive last byte to read
+    for(size_t j = 0; j < count; j++) {
+        uint64_t start = addresses[j]; // inclusive first byte to read
+        uint64_t stop = addresses[j] + sizes[j] - 0x1; // inclusive last byte to read
 
         //printf("\tMemStream: extracting read at 0x%p\n", (void*)start);
 
@@ -85,7 +84,7 @@ struct hashmap* extractTargets(ReadOp* reads) {
         uint64_t end_page = page_tail(stop); // first page *NOT* containing END byte to read
 
         uint64_t num_pages = (end_page - start_page) / 0x1000; // 0x2000 - 0x1000 / 0x1000 = 1 -- 1 page to read starting at start_page
-         //printf("\tMemStream: read will start at 0x%p and take %llu pages\n", (void*)start_page, num_pages);
+        //printf("\tMemStream: read will start at 0x%p and take %llu pages\n", (void*)start_page, num_pages);
 
 
         for(uint64_t i = 0; i < num_pages; i++) {
@@ -106,27 +105,25 @@ struct hashmap* extractTargets(ReadOp* reads) {
                 // TODO: figure out how to free elements otherwise we continue to leak mem :(
             }
         }
-
-        current = current->next;
     }
-    //printf("\tMemStream: done extracting targets\n");
 
     return targets;
 }
 
 // parseTargets populates read buffers with content in the hashmap of page data
-HRESULT parseTargets(ReadOp* reads, struct hashmap* pages) {
-    if(!reads) return E_INVALIDARG;
+HRESULT parseTargets(struct hashmap* pages, uint64_t* addresses, void** buffers, size_t* sizes, size_t count) {
     if(!pages) return E_INVALIDARG;
-
-    ReadOp* current = reads;
+    if(!addresses) return E_INVALIDARG;
+    if(!buffers) return E_INVALIDARG;
+    if(!sizes) return E_INVALIDARG;
+    if(!count) return E_INVALIDARG;
 
     //printf("\tMemStream: parsing targets...\n");
 
-    while(current) {
-        uint64_t op_address = current->address;
-        void* op_buffer = current->buffer;
-        size_t op_size = current->size;
+    for(size_t j = 0; j < count; j++) {
+        uint64_t op_address = addresses[j];
+        void* op_buffer = buffers[j];
+        size_t op_size = sizes[j];
 
         //printf("\tMemStream: extracting %zu bytes at 0x%p...\n", op_size, (void*)op_address);
 
@@ -168,7 +165,6 @@ HRESULT parseTargets(ReadOp* reads, struct hashmap* pages) {
             total_bytes_read += page_read_len;
         }
 
-        current=current->next;
     }
 
     //printf("\tMemStream: done extracting targets...\n");
@@ -178,13 +174,16 @@ HRESULT parseTargets(ReadOp* reads, struct hashmap* pages) {
 
 // MSS_ReadMany will do a single read DMA request to read many addresses
 // NOTE: if you read multiple values from the same page, it's more efficient to combine them into a larger buffer.
-HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
+HRESULT MSS_ReadMany(PMSSProcess process, uint64_t addresses[], void* buffers[], size_t sizes[], size_t count) {
     if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
-    if(!reads) return E_INVALIDARG;
+    if(!addresses) return E_INVALIDARG;
+    if(!buffers) return E_INVALIDARG;
+    if(!sizes) return E_INVALIDARG;
+    if(!count) return E_INVALIDARG;
 
     // build a hashmap of all unique pages we'd need to read to fulfill all ops
     //printf("\tMemStream: extracting targets from reads...\n");
-    struct hashmap* targets = extractTargets(reads);
+    struct hashmap* targets = extractTargets(addresses, sizes, count);
     if(!targets) return E_FAIL;
 
     size_t num_targets = hashmap_count(targets);
@@ -239,7 +238,7 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
         return E_FAIL;
     }
 
-    if(FAILED(parseTargets(reads, targets))) {
+    if(FAILED(parseTargets(targets, addresses, buffers, sizes, count))) {
         //printf("\tMemStream: failed to parse targets");
         LcMemFree(ppMEMs);
         free(read_buffer);
@@ -254,100 +253,59 @@ HRESULT MSS_ReadMany(PMSSProcess process, ReadOp* reads) {
     return S_OK;
 }
 
-// MSS_NewReadOp constructs a read operation for use with MSS_ReadMany
-HRESULT MSS_NewReadOp(uint64_t address, void* buffer, size_t size, PReadOp* pReadOp) {
+HRESULT MSS_PushRead(PMSSReadArray array, uint64_t address, void* buffer, size_t size) {
+    if(!array) return E_INVALIDARG;
+    if(array->count >= array->capacity) return E_ABORT;
     if(!address) return E_INVALIDARG;
     if(!buffer) return E_INVALIDARG;
     if(!size) return E_INVALIDARG;
-    if(!pReadOp) return E_INVALIDARG;
 
-    *pReadOp = (PReadOp)malloc(sizeof(ReadOp));
-    if(!*pReadOp) return E_FAIL;
-
-    (*pReadOp)->address = address;
-    (*pReadOp)->size = size;
-    (*pReadOp)->buffer = buffer;
-    // no links
-    (*pReadOp)->next = NULL;
-    (*pReadOp)->prev = NULL;
+    array->read_addresses[array->count] = address;
+    array->read_buffers[array->count] = buffer;
+    array->read_sizes[array->count] = size;
+    array->count++;
 
     return S_OK;
 }
 
-// MSS_FreeReadOp releases the read operation - stitching back together any linked list pointers
-HRESULT MSS_FreeReadOp(PReadOp read) {
-    if(!read) return E_INVALIDARG;
-    // relink list depending on any links set in read we're freeing
-    if(read->prev && read->prev->next == read && read->next && read->next->prev == read) {
-       ReadOp* next = read->next;
-       ReadOp* prev = read->prev;
-
-       prev->next = next;
-       next->prev = prev;
-    } else if(read->prev && read->prev->next == read) {
-        read->prev->next = NULL;
-    } else if(read->next && read->next->prev == read) {
-        read->next->prev = NULL;
-    }
-
-    free(read);
-
-    return S_OK;
-}
-
-// MSS_InsertReadOp inserts the read operation after the parent operation
-//  ex: PARENT<->CHILD => PARENT<->NEW<->CHILD
-HRESULT MSS_InsertReadOp(PReadOp parent, PReadOp newchild) {
-    if(!parent) return E_INVALIDARG;
-    if(!newchild) return E_INVALIDARG;
-
-
-    newchild->next = parent->next;
-    newchild->prev = parent;
-
-
-    if(parent->next) {
-        parent->next->prev = newchild;
-    }
-    parent->next = newchild;
-
-    return S_OK;
-}
-
-// MSS_CreateReadOps will construct a read op linked list from a list of address, buffers, and read sizes
-HRESULT MSS_CreateReadOps(uint64_t addresses[], void* buffers[], size_t sizes[], size_t count, PReadOp* pReads) {
+HRESULT MSS_PushManyReads(PMSSReadArray array, uint64_t* addresses, void** buffers, size_t* sizes, size_t count) {
+    if(!array) return E_INVALIDARG;
+    if(array->count >= array->capacity) return E_ABORT;
     if(!addresses) return E_INVALIDARG;
     if(!buffers) return E_INVALIDARG;
     if(!sizes) return E_INVALIDARG;
-    if(count == 0) return E_INVALIDARG;
-    if(!pReads) return E_INVALIDARG;
+    if(!count) return E_INVALIDARG;
 
     HRESULT hr;
-
-    ReadOp* current = NULL;
-
     for(int i = 0; i < count; i++) {
-        uint64_t address = addresses[i];
-        void* buffer = buffers[i];
-        size_t size = sizes[i];
-
-        PReadOp new = NULL;
-
-        hr = MSS_NewReadOp(address, buffer, size, &new);
+        hr = MSS_PushRead(array,  addresses[i], buffers[i], sizes[i]);
         if(FAILED(hr)) return hr;
-
-        new->next = NULL;
-        new->prev = current;
-
-        if(current) {
-            current->next = new;
-        } else {
-            *pReads = new;
-        }
-
-        current = new;
     }
 
     return S_OK;
 }
+HRESULT MSS_FreeRead(PMSSReadArray array) {
+    if(!array) return E_INVALIDARG;
 
+    free(array->read_addresses);
+    free(array->read_buffers);
+    free(array->read_sizes);
+    free(array);
+
+    return S_OK;
+}
+HRESULT MSS_NewReadArray(size_t capacity, PMSSReadArray* pArray) {
+    if(!capacity) return E_INVALIDARG;
+    if(!pArray) return E_INVALIDARG;
+
+    *pArray = malloc(sizeof(MSSReadArray));
+    if(!*pArray) return E_FAIL;
+
+    (*pArray)->read_sizes = malloc(sizeof(size_t) * capacity);
+    (*pArray)->read_buffers = malloc(sizeof(void*) * capacity);
+    (*pArray)->read_addresses = malloc(sizeof(uint64_t) * capacity);
+    (*pArray)->count = 0;
+    (*pArray)->capacity = capacity;
+
+    return S_OK;
+}

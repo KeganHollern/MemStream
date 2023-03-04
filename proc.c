@@ -26,7 +26,7 @@ HRESULT MSS_GetProcess(PMSSContext ctx, const char* name, PMSSProcess* pProcess)
 }
 
 // MSS_GetAllProcesses returns a linked list of all processes with the following name
-HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcess* pProcessList) {
+HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcessList* pProcessList) {
     if(!ctx || !ctx->hVMM) return E_UNEXPECTED;
     if(!name) return E_INVALIDARG;
     if(!pProcessList) return E_INVALIDARG;
@@ -43,7 +43,7 @@ HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcess* pProces
         return E_FAIL;
     }
 
-    Process* current = NULL;
+    ProcessList* current = NULL;
 
     for (DWORD i = 0; i < cPIDs; i++)
     {
@@ -60,7 +60,7 @@ HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcess* pProces
         if(!strcmp(info.szNameLong, name))
         {
             // push entry to end of linked list (or create head if first hit)
-            Process* new = (Process*)malloc(sizeof(Process));
+            ProcessList* new = (ProcessList*)malloc(sizeof(ProcessList));
             new->next = NULL;
             new->value = (PMSSProcess)(sizeof(MSSProcess));
             new->value->pid = dwPid;
@@ -92,7 +92,7 @@ HRESULT MSS_GetModuleBase(PMSSProcess process, const char* name, uint64_t* pBase
 }
 
 // MSS_GetModuleExports returns a linked list of module exports from the export address table.
-HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pExportList) {
+HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExportList* pExportList) {
     if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
     if(!name) return E_INVALIDARG;
     if(!pExportList) return E_INVALIDARG;
@@ -100,7 +100,7 @@ HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pEx
     PVMMDLL_MAP_EAT pEatMap = NULL;
     PVMMDLL_MAP_EATENTRY pEatMapEntry;
 
-    Export* current = NULL;
+    ExportList* current = NULL;
 
     if(!VMMDLL_Map_GetEATU(process->ctx->hVMM, process->pid, (char*)name, &pEatMap))
         return E_FAIL;
@@ -112,7 +112,7 @@ HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pEx
     for(int i = 0; i < pEatMap->cMap; i++) {
         pEatMapEntry = pEatMap->pMap + i;
 
-        Export* new = new = (Export*)malloc(sizeof(Export));
+        ExportList* new = (ExportList*)malloc(sizeof(ExportList));
         new->next = NULL;
         new->name = malloc(strlen(pEatMapEntry->uszFunction)+1);
         strcpy_s((char*)new->name, strlen(pEatMapEntry->uszFunction)+1, pEatMapEntry->uszFunction);
@@ -132,11 +132,11 @@ HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pEx
 
 // MSS_GetModuleExport returns the address pointed to by the export with the specified name
 HRESULT MSS_GetModuleExport(PMSSProcess process, const char* module, const char* export, uint64_t* pAddress) {
-    PExport exports;
+    PExportList exports;
     HRESULT hr = MSS_GetModuleExports(process, module, &exports);
     if(FAILED(hr)) return hr;
 
-    Export* current = exports;
+    ExportList* current = exports;
     while(current) {
         if(!strcmp(current->name,export)) {
             *pAddress = current->address;
@@ -150,7 +150,7 @@ HRESULT MSS_GetModuleExport(PMSSProcess process, const char* module, const char*
 }
 
 // MSS_GetModuleImports returns a linked list of module imports from the import address table.
-HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pImportList) {
+HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImportList* pImportList) {
     if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
     if(!name) return E_INVALIDARG;
     if(!pImportList) return E_INVALIDARG;
@@ -166,12 +166,12 @@ HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pIm
         return E_FAIL;
     }
 
-    Import* current = NULL;
+    ImportList* current = NULL;
 
     for(int i = 0; i < pIatMap->cMap; i++) {
         pIatMapEntry = pIatMap->pMap + i;
 
-        Import* new = (Import*)malloc(sizeof(Import));
+        ImportList* new = (ImportList*)malloc(sizeof(ImportList));
         new->next = NULL;
         new->name = malloc(strlen(pIatMapEntry->uszFunction)+1);
         strcpy_s((char*)new->name, strlen(pIatMapEntry->uszFunction)+1, pIatMapEntry->uszFunction);
@@ -191,11 +191,11 @@ HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pIm
 
 // MSS_GetModuleImport returns the address pointed to by the import with the specified name
 HRESULT MSS_GetModuleImport(PMSSProcess process, const char* module, const char* export, uint64_t* pAddress) {
-    PImport imports;
+    PImportList imports;
     HRESULT hr = MSS_GetModuleImports(process, module, &imports);
     if(FAILED(hr)) return hr;
 
-    Import* current = imports;
+    ImportList* current = imports;
     while(current) {
         if(!strcmp(current->name,export)) {
             *pAddress = current->address;
@@ -209,7 +209,7 @@ HRESULT MSS_GetModuleImport(PMSSProcess process, const char* module, const char*
 }
 
 
-HRESULT MSS_GetProcessModules(PMSSProcess process, PModule* pModuleList) {
+HRESULT MSS_GetProcessModules(PMSSProcess process, PModuleList* pModuleList) {
     if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
     if(!pModuleList) return E_INVALIDARG;
 
@@ -224,12 +224,12 @@ HRESULT MSS_GetProcessModules(PMSSProcess process, PModule* pModuleList) {
         return E_FAIL;
     }
 
-    Module* current = NULL;
+    ModuleList* current = NULL;
 
     for(int i = 0; i < pModuleMap->cMap;i++) {
         pModuleEntry = pModuleMap->pMap + i;
 
-        Module* new = (Module*)malloc(sizeof(Module));
+        ModuleList* new = (ModuleList*)malloc(sizeof(ModuleList));
         new->next = NULL;
         new->name = malloc(strlen(pModuleEntry->uszText)+1);
         strcpy_s((char*)new->name, strlen(pModuleEntry->uszText)+1, pModuleEntry->uszText);

@@ -19,39 +19,30 @@ typedef struct MSSProcess {
 
 
 // Process is a linked list of processes
-typedef struct Process {
-    struct Process* next;
+typedef struct ProcessList {
+    struct ProcessList* next;
     PMSSProcess value;
-} Process, *PProcess;
+} ProcessList, *PProcessList;
 
 // Import is a linked list of module imports
-typedef struct Import {
-    struct Import* next;
+typedef struct ImportList {
+    struct ImportList* next;
     const char* name;
     uint64_t address;
-} Import, *PImport;
+} ImportList, *PImportList;
 
 // Export is a linked list of module exports
-typedef struct Export {
-    struct Export* next;
+typedef struct ExportList {
+    struct ExportList* next;
     const char* name;
     uint64_t address;
-} Export, *PExport;
+} ExportList, *PExportList;
 
 // Module is a linked list of module names
-typedef struct Module {
-    struct Module* next;
+typedef struct ModuleList {
+    struct ModuleList* next;
     const char* name;
-} Module, *PModule;
-
-// ReadOp is a double linked list of read operations for scatter reading
-typedef struct ReadOp {
-    struct ReadOp* next; // NULL if tail
-    struct ReadOp* prev; // NULL if head
-    void* buffer;
-    int64_t address;
-    size_t size;
-} ReadOp, *PReadOp;
+} ModuleList, *PModuleList;
 
 
 //--- PCIE FPGA
@@ -67,14 +58,14 @@ void MSS_PrintBuffer(void* buffer, size_t size);
 //--- PROCESS
 
 HRESULT MSS_GetProcess(PMSSContext ctx, const char* name, PMSSProcess* pProcess);
-HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcess* pProcessList);
+HRESULT MSS_GetAllProcesses(PMSSContext ctx, const char* name, PProcessList* pProcessList);
 
 HRESULT MSS_GetModuleBase(PMSSProcess process, const char* name, uint64_t* pBase);
-HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExport* pExportList);
+HRESULT MSS_GetModuleExports(PMSSProcess process, const char* name, PExportList* pExportList);
 HRESULT MSS_GetModuleExport(PMSSProcess process, const char* module, const char* export, uint64_t* pAddress);
-HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImport* pImportList);
+HRESULT MSS_GetModuleImports(PMSSProcess process, const char* name, PImportList* pImportList);
 HRESULT MSS_GetModuleImport(PMSSProcess process, const char* module, const char* export, uint64_t* pAddress);
-HRESULT MSS_GetProcessModules(PMSSProcess process, PModule* pModuleList);
+HRESULT MSS_GetProcessModules(PMSSProcess process, PModuleList* pModuleList);
 
 
 HRESULT MSS_Free(void* list);
@@ -84,17 +75,34 @@ HRESULT MSS_Free(void* list);
 HRESULT MSS_ReadSingle(PMSSProcess process, uint64_t address, void* buffer, size_t size);
 
 
+// ----- ah ok
+
+typedef struct MSSReadArray {
+    int64_t* read_addresses;
+    void** read_buffers;
+    size_t* read_sizes;
+    size_t count;
+    size_t capacity;
+} MSSReadArray, *PMSSReadArray;
 
 
-// --- I don't like this readop system
-// at least it's not particularly friendly - so I want to move this out of the lowlevel manyread routine
-// instead ReadMany should take in the args that CreateReadOps does
+HRESULT MSS_ReadMany(PMSSProcess process, uint64_t addresses[], void* buffers[], size_t sizes[], size_t count);
 
-// ideally -- the readop array should be dynamically alocated so i can just feed in values into the readmany
-//
-// ReadOps array is like:
-// { uint64_t* pAddressArray, void** bufferArray, size_t* sizeArray, size_t size, size_t capacity }
-//
+HRESULT MSS_PushRead(PMSSReadArray array, uint64_t address, void* buffer, size_t size); // add element to read array
+HRESULT MSS_PushManyReads(PMSSReadArray array, uint64_t* addresses, void** buffers, size_t* sizes, size_t count);
+HRESULT MSS_FreeRead(PMSSReadArray array); // delete read array
+HRESULT MSS_NewReadArray(size_t capacity, PMSSReadArray* pArray); // construct read array
+
+/*
+// ReadOp is a double linked list of read operations for scatter reading
+typedef struct ReadOp {
+    struct ReadOp* next; // NULL if tail
+    struct ReadOp* prev; // NULL if head
+    void* buffer;
+    int64_t address;
+    size_t size;
+} ReadOp, *PReadOp;
+
 
 
 HRESULT MSS_ReadMany(PMSSProcess process, PReadOp reads);
@@ -103,6 +111,7 @@ HRESULT MSS_NewReadOp(uint64_t address, void* buffer, size_t size, PReadOp* pRea
 HRESULT MSS_FreeReadOp(PReadOp read);
 HRESULT MSS_InsertReadOp(PReadOp parent, PReadOp read);
 HRESULT MSS_CreateReadOps(uint64_t addresses[], void* buffers[], size_t sizes[], size_t count, PReadOp* pReads);
+*/
 
 //TODO: write
 
