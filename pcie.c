@@ -23,6 +23,14 @@ HRESULT MSS_InitFPGA(PMSSContext* pCtx) {
     return S_OK;
 }
 
+HRESULT MSS_CloseContext(PMSSContext ctx) {
+    if(!ctx) return E_INVALIDARG;
+    if(!ctx->hVMM) return E_UNEXPECTED;
+
+    VMMDLL_Close(ctx->hVMM);
+    return S_OK;
+}
+
 // MSS_DisableMasterAbort configures the PCIe config space status register flags to auto-clear.
 HRESULT MSS_DisableMasterAbort(PMSSContext ctx) {
     ULONG64 qwID = 0, qwVersionMajor = 0, qwVersionMinor = 0;

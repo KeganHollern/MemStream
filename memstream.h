@@ -57,6 +57,7 @@ typedef struct ReadOp {
 //--- PCIE FPGA
 
 HRESULT MSS_InitFPGA(PMSSContext* pCtx);
+HRESULT MSS_CloseContext(PMSSContext ctx);
 HRESULT MSS_DisableMasterAbort(PMSSContext ctx);
 
 //--- UTILS
