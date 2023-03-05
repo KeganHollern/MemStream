@@ -78,7 +78,7 @@ HRESULT MSS_ReadSingle(PMSSProcess process, uint64_t address, void* buffer, size
 // ----- ah ok
 
 typedef struct MSSReadArray {
-    int64_t* read_addresses;
+    uint64_t* read_addresses;
     void** read_buffers;
     size_t* read_sizes;
     size_t count;
@@ -89,7 +89,7 @@ typedef struct MSSReadArray {
 HRESULT MSS_ReadMany(PMSSProcess process, uint64_t addresses[], void* buffers[], size_t sizes[], size_t count);
 
 HRESULT MSS_PushRead(PMSSReadArray array, uint64_t address, void* buffer, size_t size); // add element to read array
-HRESULT MSS_PushManyReads(PMSSReadArray array, uint64_t* addresses, void** buffers, size_t* sizes, size_t count);
+HRESULT MSS_PushManyReads(PMSSReadArray array, uint64_t addresses[], void* buffers[], size_t sizes[], size_t count);
 HRESULT MSS_FreeRead(PMSSReadArray array); // delete read array
 HRESULT MSS_NewReadArray(size_t capacity, PMSSReadArray* pArray); // construct read array
 

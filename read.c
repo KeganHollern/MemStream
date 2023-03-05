@@ -268,7 +268,7 @@ HRESULT MSS_PushRead(PMSSReadArray array, uint64_t address, void* buffer, size_t
     return S_OK;
 }
 
-HRESULT MSS_PushManyReads(PMSSReadArray array, uint64_t* addresses, void** buffers, size_t* sizes, size_t count) {
+HRESULT MSS_PushManyReads(PMSSReadArray array, uint64_t addresses[], void* buffers[], size_t sizes[], size_t count) {
     if(!array) return E_INVALIDARG;
     if(array->count >= array->capacity) return E_ABORT;
     if(!addresses) return E_INVALIDARG;
