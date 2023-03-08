@@ -8,6 +8,7 @@ add_library(MemStream
         proc.c
         util.c
         read.c
+        runner.c
         )
 
 
