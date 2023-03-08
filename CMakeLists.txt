@@ -8,7 +8,6 @@ add_library(MemStream
         proc.c
         util.c
         read.c
-        hashmap.c
         )
 
 
