@@ -64,6 +64,16 @@ typedef struct MSSDataArray {
     size_t capacity;
 } MSSDataArray, *PMSSDataArray;
 
+// MSSFunctionRunner holds data necessary
+// to install and execute arbitrary code
+// within the target process.
+typedef struct MSSFunctionRunner {
+    PMSSProcess process;
+    uint64_t data_address; // location of unused .data buffer
+    uint64_t call_address; // location of 5 byte relcall.
+    uint64_t text_address; // location of unused .text executable code (or code cave)
+} MSSFunctionRunner, *PMSSFunctionRunner;
+
 //========== PCIE FPGA ===========
 
 // MSS_InitFPGA initializes the DMA device and
@@ -256,13 +266,6 @@ HRESULT MSS_GetCursorPos(PMSSKernel kernel, POINT* pOutPos);
 HRESULT MSS_GetKeyState(PMSSKernel kernel, int vk, BOOL* pOutIsDown);
 
 //--- RCE UTILS
-
-typedef struct MSSFunctionRunner {
-    PMSSProcess process;
-    uint64_t data_address; // location of unused .data buffer
-    uint64_t call_address; // location of 5 byte relcall.
-    uint64_t text_address; // location of unused .text executable code (or code cave)
-} MSSFunctionRunner, *PMSSFunctionRunner;
 
 HRESULT MSS_InitRunner(PMSSProcess process, uint64_t data_address, uint64_t call_address, uint64_t text_address, PMSSFunctionRunner* pOutRunner);
 
