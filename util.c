@@ -45,7 +45,7 @@ void MSS_PrintBuffer(void* buffer, size_t size) {
 
 
 
-HRESULT MSS_PushRead(PMSSDataArray array, uint64_t address, void* buffer, size_t size) {
+HRESULT MSS_Push(PMSSDataArray array, uint64_t address, void* buffer, size_t size) {
     if(!array) return E_INVALIDARG;
     if(array->count >= array->capacity) return E_ABORT;
     if(!address) return E_INVALIDARG;
@@ -60,7 +60,7 @@ HRESULT MSS_PushRead(PMSSDataArray array, uint64_t address, void* buffer, size_t
     return S_OK;
 }
 
-HRESULT MSS_PushManyReads(PMSSDataArray array, uint64_t addresses[], void* buffers[], size_t sizes[], size_t count) {
+HRESULT MSS_PushMany(PMSSDataArray array, uint64_t addresses[], void* buffers[], size_t sizes[], size_t count) {
     if(!array) return E_INVALIDARG;
     if(array->count >= array->capacity) return E_ABORT;
     if(!addresses) return E_INVALIDARG;
@@ -76,7 +76,7 @@ HRESULT MSS_PushManyReads(PMSSDataArray array, uint64_t addresses[], void* buffe
 
     return S_OK;
 }
-HRESULT MSS_FreeRead(PMSSDataArray array) {
+HRESULT MSS_FreeArray(PMSSDataArray array) {
     if(!array) return E_INVALIDARG;
 
     free(array->addresses);

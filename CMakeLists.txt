@@ -9,6 +9,8 @@ add_library(MemStream
         util.c
         read.c
         runner.c
+        kernel.c
+        write.c
         )
 
 

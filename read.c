@@ -85,3 +85,11 @@ HRESULT MSS_ReadMany(PMSSProcess process, uint64_t addresses[], void* buffers[],
     VMMDLL_Scatter_CloseHandle(hScatter);
     return S_OK;
 }
+
+HRESULT MSS_FindModulePattern(
+        PMSSProcess process,
+        const char* module,
+        const char* pattern,
+        uint64_t* pFound) {
+    return E_NOTIMPL;
+}
