@@ -74,9 +74,6 @@ HRESULT MSS_Free(void* list);
 
 HRESULT MSS_ReadSingle(PMSSProcess process, uint64_t address, void* buffer, size_t size);
 
-
-// ----- ah ok
-
 typedef struct MSSReadArray {
     uint64_t* read_addresses;
     void** read_buffers;
@@ -93,25 +90,14 @@ HRESULT MSS_PushManyReads(PMSSReadArray array, uint64_t addresses[], void* buffe
 HRESULT MSS_FreeRead(PMSSReadArray array); // delete read array
 HRESULT MSS_NewReadArray(size_t capacity, PMSSReadArray* pArray); // construct read array
 
-/*
-// ReadOp is a double linked list of read operations for scatter reading
-typedef struct ReadOp {
-    struct ReadOp* next; // NULL if tail
-    struct ReadOp* prev; // NULL if head
-    void* buffer;
-    int64_t address;
-    size_t size;
-} ReadOp, *PReadOp;
+// MSS_FindModulePattern finds the provided pattern within the process module.
+// Pattern format is 'AA ? AA ? ? ? BB BB BB'
+HRESULT MSS_FindModulePattern(PMSSProcess process, const char* name, const char* pattern, uint64_t* pFound);
 
 
 
-HRESULT MSS_ReadMany(PMSSProcess process, PReadOp reads);
 
-HRESULT MSS_NewReadOp(uint64_t address, void* buffer, size_t size, PReadOp* pReadOp);
-HRESULT MSS_FreeReadOp(PReadOp read);
-HRESULT MSS_InsertReadOp(PReadOp parent, PReadOp read);
-HRESULT MSS_CreateReadOps(uint64_t addresses[], void* buffers[], size_t sizes[], size_t count, PReadOp* pReads);
-*/
+
 
 //TODO: write
 
