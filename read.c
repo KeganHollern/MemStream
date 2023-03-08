@@ -174,6 +174,7 @@ HRESULT parseTargets(struct hashmap* pages, uint64_t* addresses, void** buffers,
 
 // MSS_ReadMany will do a single read DMA request to read many addresses
 // NOTE: if you read multiple values from the same page, it's more efficient to combine them into a larger buffer.
+
 HRESULT MSS_ReadMany(PMSSProcess process, uint64_t addresses[], void* buffers[], size_t sizes[], size_t count) {
     if(!process || !process->ctx || !process->ctx->hVMM) return E_UNEXPECTED;
     if(!addresses) return E_INVALIDARG;
@@ -181,75 +182,38 @@ HRESULT MSS_ReadMany(PMSSProcess process, uint64_t addresses[], void* buffers[],
     if(!sizes) return E_INVALIDARG;
     if(!count) return E_INVALIDARG;
 
-    // build a hashmap of all unique pages we'd need to read to fulfill all ops
-    //printf("\tMemStream: extracting targets from reads...\n");
-    struct hashmap* targets = extractTargets(addresses, sizes, count);
-    if(!targets) return E_FAIL;
+    VMMDLL_SCATTER_HANDLE hScatter = VMMDLL_Scatter_Initialize(process->ctx->hVMM, process->pid, MSS_READ_FLAGS);
 
-    size_t num_targets = hashmap_count(targets);
-    //printf("\tMemStream: reading %zu targets...\n", num_targets);
+    for(size_t i = 0; i < count; i++) {
+        uint64_t address = addresses[i];
+        void* buffer = buffers[i];
+        size_t size = sizes[i];
 
-    size_t read_size = 0x1000 * num_targets;
-
-    // allocate a single buffer for all reads to write into
-    void* read_buffer = malloc(read_size);
-    if(!read_buffer) {
-        //printf("\tMemStream: failed to allocate read buffer");
-        hashmap_free(targets);
-        return E_FAIL;
-    }
-
-    // allocate scatter structure using our single read_buffer for storage
-    PPMEM_SCATTER ppMEMs = NULL;
-    if(!LcAllocScatter2(read_size, read_buffer, hashmap_count(targets),&ppMEMs))
-    {
-        //printf("\tMemStream: failed to allocate scatter buffer");
-        free(read_buffer);
-        hashmap_free(targets);
-        return E_FAIL;
-    }
-
-    // link scatter and hashmap pointers
-    size_t iter = 0;
-    void *item;
-    int idx = 0;
-    while (hashmap_iter(targets, &iter, &item)) {
-        page_read *page = item;
-        if(!page) {
-            //printf("\tMemStream: iterator returned null item?");
-            continue;
+        if((address+size) >= page_tail(address)) {
+            // TODO: determine if this needs broken into two reads
         }
-        page->buffer = ppMEMs[idx]->pb; // point page buffer to the same region ppMEMs writes to
-        ppMEMs[idx]->qwA = page->address; // point ppMEMs read address to the same as the page expects
-        idx++;
+
+        // we use Ex here so we write bytes directly the the desired buffer
+        // when ExecuteRead is called - this saves us a memcpy step & boosts perf
+        if(!VMMDLL_Scatter_PrepareEx(
+                hScatter,
+                address,
+                size,
+                buffer,
+                NULL)) { // NULL should be Ok here because its "_out_opt_" ?
+            // error preping - ensure we close the scatter handle safely
+            VMMDLL_Scatter_CloseHandle(hScatter);
+            return E_FAIL;
+        }
     }
 
-    // at this point a memreadscatter should populate read_buffer and the contents of each page read should be accessable via targets map
-    if (!VMMDLL_MemReadScatter(
-            process->ctx->hVMM,
-            process->pid,
-            ppMEMs,
-            hashmap_count(targets),
-            MSS_READ_FLAGS | VMMDLL_FLAG_ZEROPAD_ON_FAIL)) {
-        //printf("\tMemStream: VMM scatter read failed");
-        LcMemFree(ppMEMs);
-        free(read_buffer);
-        hashmap_free(targets);
+    if(!VMMDLL_Scatter_ExecuteRead(hScatter)) {
+        // read execution failed for some reason
+        VMMDLL_Scatter_CloseHandle(hScatter);
         return E_FAIL;
     }
 
-    if(FAILED(parseTargets(targets, addresses, buffers, sizes, count))) {
-        //printf("\tMemStream: failed to parse targets");
-        LcMemFree(ppMEMs);
-        free(read_buffer);
-        hashmap_free(targets);
-        return E_FAIL;
-    }
-
-    //printf("\tMemStream: freeing VMM buffer...\n");
-    LcMemFree(ppMEMs);
-    free(read_buffer);
-    hashmap_free(targets);
+    VMMDLL_Scatter_CloseHandle(hScatter);
     return S_OK;
 }
 
