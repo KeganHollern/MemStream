@@ -19,6 +19,13 @@ typedef struct MSSProcess {
     uint64_t pid;
 } MSSProcess, *PMSSProcess;
 
+// MSSKernel represents the windows session
+// process on the remote machine.
+// From MSSKernel you can read/write data
+// in session drivers.
+typedef struct MSSKernel {
+    PMSSProcess csrss;
+} MSSKernel, *PMSSKernel;
 
 // Process is a linked list of processes
 typedef struct ProcessList {
@@ -46,24 +53,16 @@ typedef struct ModuleList {
     const char* name;
 } ModuleList, *PModuleList;
 
-// MSSReadArray is an array of addresses,
+// MSSDataArray is an array of addresses,
 // buffers, and buffer sizes. This is used
-// for performant reads.
-// interchangeable with MSSWriteArray.
-typedef struct MSSReadArray {
+// for performant reads and writes.
+typedef struct MSSDataArray {
     uint64_t* addresses;
     void** buffers;
     size_t* sizes;
     size_t count;
     size_t capacity;
-} MSSReadArray, *PMSSReadArray;
-// MSSWriteArray is an array of addresses,
-// buffers, and buffer sizes. This is used
-// for performant writes.
-// interchangeable with MSSReadArray
-typedef MSSReadArray MSSWriteArray;
-// todo: probably better to rename readarray and have it handle both ops
-typedef PMSSReadArray PMSSWriteArray;
+} MSSDataArray, *PMSSDataArray;
 
 //========== PCIE FPGA ===========
 
@@ -164,93 +163,97 @@ HRESULT MSS_ReadMany(
         void* buffers[],
         size_t sizes[],
         size_t count);
-// MSS_PushRead pushes a read operation to
-// an MSSReadArray. MSSReadArray must have
-// capacity.
-HRESULT MSS_PushRead(
-        PMSSReadArray array,
+
+//========== WRITE ==========
+
+// MSS_WriteSingle writes a single address.
+// This is not optimized.
+HRESULT MSS_WriteSingle(
+        PMSSProcess process,
         uint64_t address,
         void* buffer,
         size_t size);
 
-// MSS_PushManyReads pushes many read
-// operations to an MSSReadArray.
-// MSSReadArray must have capacity.
-HRESULT MSS_PushManyReads(
-        PMSSReadArray array,
+// MSS_WriteMany writes many addresses at
+// once. This is optimized.
+HRESULT MSS_WriteMany(
+        PMSSProcess process,
         uint64_t addresses[],
         void* buffers[],
         size_t sizes[],
         size_t count);
 
-// MSS_FreeRead releases an MSSReadArray.
-HRESULT MSS_FreeRead(PMSSReadArray array);
+//--- MEMORY ROUTINES
+
+// MSS_FindModulePattern finds the provided
+// pattern within the process module.
+// Pattern format is 'AA ? AA ? ? ? BB BB BB'
+HRESULT MSS_FindModulePattern(
+        PMSSProcess process,
+        const char* module,
+        const char* pattern,
+        uint64_t* pFound);
+
+//--- MEMORY MANAGEMENT
+
+// MSS_Push pushes a read or write
+// operation to an MSSReadArray.
+// MSSReadArray must have capacity.
+HRESULT MSS_Push(
+        PMSSDataArray array,
+        uint64_t address,
+        void* buffer,
+        size_t size);
+
+// MSS_PushMany pushes many read or
+// write operations to an MSSReadArray.
+// MSSReadArray must have capacity.
+HRESULT MSS_PushMany(
+        PMSSDataArray array,
+        uint64_t addresses[],
+        void* buffers[],
+        size_t sizes[],
+        size_t count);
+
+// MSS_Free releases an MSSDataArray.
+HRESULT MSS_FreeArray(PMSSDataArray array);
 
 // MSS_NewReadArray constructs an
 // MSSReadArray with a fixed capacity.
 HRESULT MSS_NewReadArray(
         size_t capacity,
-        PMSSReadArray* pArray);
+        PMSSDataArray* pArray);
 
-//========== WRITE ==========
-
-HRESULT MSS_WriteSingle(PMSSProcess process, uint64_t address, void* buffer, size_t size);
-HRESULT MSS_WriteMany(PMSSProcess process, uint64_t addresses[], void* buffers[], size_t sizes[], size_t count);
-
-//--- MEMORY ROUTINES
-
-// MSS_FindModulePattern finds the provided pattern within the process module.
-// Pattern format is 'AA ? AA ? ? ? BB BB BB'
-HRESULT MSS_FindModulePattern(PMSSProcess process, const char* name, const char* pattern, uint64_t* pFound);
-
-//--- MEMORY MANAGEMENT
+// MSS_Free releases a linked list.
 HRESULT MSS_Free(void* list);
 
 //--- PROCESS UTILS
-HRESULT MSS_Is64Bit(PMSSProcess process, BOOL* pIs64);
-HRESULT MSS_DumpProcess(PMSSProcess process, FILE* hDumpFile);
-HRESULT MSS_DumpModule(PMSSProcess process, const char* moduleName, FILE* hDumpFile);
 
+// MSS_Is64Bit checks if the process is
+// 64 or 32 bit.
+HRESULT MSS_Is64Bit(
+        PMSSProcess process,
+        BOOL* pIs64);
+
+// MSS_DumpProcess writes all memory
+// to the provided file handle.
+HRESULT MSS_DumpProcess(
+        PMSSProcess process,
+        FILE* hDumpFile);
+
+// MSS_DumpModule writes all memory,
+// within the bounds of the provided
+// module, to the provided file handle.
+HRESULT MSS_DumpModule(
+        PMSSProcess process,
+        const char* moduleName,
+        FILE* hDumpFile);
 
 //--- KERNEL UTILS
-// TODO: may want to make a kernel wrapper to abstract the sessionprocess logic....
 // TODO: can we find BEDaisy.sys with the session process?
-HRESULT MSS_GetSessionProcess(PMSSContext ctx, PMSSProcess* pOutSession);
-HRESULT MSS_GetCursorPos(PMSSProcess sessionProcess, POINT* pOutPos);
-HRESULT MSS_GetKeyState(PMSSProcess sessionProcess, int vk, BOOL* pOutIsDown);
-
-//--- DIRECTX UTILS
-//viewport definitions for each version
-typedef struct D3D11_VIEWPORT {
-    FLOAT TopLeftX;
-    FLOAT TopLeftY;
-    FLOAT Width;
-    FLOAT Height;
-    FLOAT MinDepth;
-    FLOAT MaxDepth;
-} D3D11_VIEWPORT;
-typedef D3D11_VIEWPORT D3D12_VIEWPORT;
-typedef struct D3DVIEWPORT9 {
-    uint32_t X;
-    uint32_t Y;
-    uint32_t Width;
-    uint32_t Height;
-    float MinZ;
-    float MaxZ;
-} D3DVIEWPORT9;
-enum EDirectXVersion {
-    DX9,
-    DX11,
-    DX12,
-    UNK
-};
-typedef struct DirectX {
-    PMSSProcess  process;
-    enum EDirectXVersion version;
-} DirectX, *PDirectX;
-HRESULT MSS_GetDirectX(PMSSProcess process, DirectX* pOutDirectX);
-HRESULT MSS_GetViewport(PDirectX, uint64_t dxdevice, void** pOutViewport);
-
+HRESULT MSS_GetKernel(PMSSContext ctx, PMSSKernel * pOutKernel);
+HRESULT MSS_GetCursorPos(PMSSKernel kernel, POINT* pOutPos);
+HRESULT MSS_GetKeyState(PMSSKernel kernel, int vk, BOOL* pOutIsDown);
 
 //--- RCE UTILS
 
