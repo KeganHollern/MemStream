@@ -25,6 +25,9 @@ typedef struct MSSProcess {
 // in session drivers.
 typedef struct MSSKernel {
     PMSSProcess csrss;
+
+    uint64_t _gafAsyncKeyState;
+    uint64_t _gptCursorAsync;
 } MSSKernel, *PMSSKernel;
 
 // Process is a linked list of processes
