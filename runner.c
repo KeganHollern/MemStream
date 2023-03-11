@@ -95,6 +95,32 @@ HRESULT MSS_InitRunner(
     // TODO: use zydis to generate the jmp code
     // write jmp code
 
+    // generate code to JMP from call_address to text_address
+    ZydisEncoderRequest req;
+    ZeroMemory(&req, sizeof(ZydisEncoderRequest));
+    req.mnemonic = ZYDIS_MNEMONIC_JMP;
+    req.machine_mode = ZYDIS_MACHINE_MODE_LONG_64;
+    req.operand_count = 1;
+    req.operands[0].type = ZYDIS_OPERAND_TYPE_IMMEDIATE;
+    req.operands[0].imm.u = text_address;
+
+    ZyanU8 encoded_instruction[ZYDIS_MAX_INSTRUCTION_LENGTH];
+    ZyanUSize encoded_length = sizeof(encoded_instruction);
+    if (ZYAN_FAILED(
+            ZydisEncoderEncodeInstructionAbsolute(
+                    &req,
+                    encoded_instruction,
+                    &encoded_length,
+                    call_address)))
+    {
+        return E_FAIL;
+    }
+    if(encoded_length != 5) {
+        // i am retarded and encoded something wrong or something
+        return E_UNKNOWN;
+    }
+    // TODO: write encoded_instructions to call_address
+
 
     return E_NOTIMPL;
 }
