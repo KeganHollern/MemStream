@@ -15,14 +15,11 @@ namespace memstream {
     Process::Process(uint32_t pid) : Process(gDevice, pid) {}
 
     Process::Process(FPGA *pFPGA, uint32_t pid) : info() {
-        //TODO: exception if invalid args
-        assert(pFPGA && "invalid fpga");
-        //TODO: get process by PID / validate it exists?
-        // maybe pull some basic proc details like Is64Bit?
+        if(!pFPGA)
+            throw std::invalid_argument("invalid fpga provided");
 
-        bool ok = pFPGA->GetProcessInfo(pid, this->info);
-        //TODO: exception if error
-        assert(ok && "failed to get process info");
+        if(!pFPGA->GetProcessInfo(pid, this->info))
+            throw std::runtime_error("failed to get process info");
 
         this->pFPGA = pFPGA;
     }
@@ -30,19 +27,15 @@ namespace memstream {
     Process::Process(const std::string &name) : Process(gDevice, name) {}
 
     Process::Process(FPGA *pFPGA, const std::string &name) : info() {
-        //TODO: exception if invalid args
-        assert(pFPGA && "invalid fpga");
+        if(!pFPGA)
+            throw std::invalid_argument("invalid fpga provided");
+
         uint32_t foundPid = 0;
+        if(!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) name.c_str(), &foundPid))
+            throw std::runtime_error("failed to find process with name");
 
-        //TODO: find process by name
-        bool ok = VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) name.c_str(), &foundPid);
-        //TODO: throw exception if process not found
-        assert(ok && "vmmdll failed to get pid from name");
-        assert(foundPid && "pid result was 0 with ok feedback from vmm");
-
-        ok = pFPGA->GetProcessInfo(foundPid, this->info);
-        //TODO: exception if error
-        assert(ok && "failed to get process info");
+        if(!pFPGA->GetProcessInfo(foundPid, this->info))
+            throw std::runtime_error("failed to get process info");
 
         this->pFPGA = pFPGA;
     }
