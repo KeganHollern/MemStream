@@ -123,22 +123,3 @@ HRESULT MSS_GetModuleImport(PMSSProcess process, const char* module, const char*
     MSS_Free(imports);
     return S_OK;
 }
-
-HRESULT MSS_Is64Bit(
-        PMSSProcess process,
-        BOOL* pIs64) {
-    return E_NOTIMPL;
-}
-
-HRESULT MSS_DumpProcess(
-        PMSSProcess process,
-        FILE* hDumpFile) {
-    return E_NOTIMPL;
-}
-
-HRESULT MSS_DumpModule(
-        PMSSProcess process,
-        const char* moduleName,
-        FILE* hDumpFile) {
-    return E_NOTIMPL;
-}
