@@ -17,17 +17,33 @@ namespace memstream {
 
         virtual ~Process();
 
+        // reads
+
         virtual bool Read(uint64_t addr, uint8_t *buffer, uint32_t size);
         virtual bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t*, uint32_t>> &readOps);
 
+        // writes
+
         virtual bool Write(uint64_t addr, uint8_t *buffer, uint32_t size);
+
+        // info stuff
 
         virtual uint64_t GetModuleBase(const std::string& name);
         virtual bool GetModuleInfo(const std::string& name, VMMDLL_MAP_MODULEENTRY& info);
-        virtual std::vector<VMMDLL_MAP_MODULEENTRY> GetModules();
+
+        // map getters
+
         virtual std::vector<VMMDLL_MAP_EATENTRY> GetExports(const std::string& name);
         virtual std::vector<VMMDLL_MAP_IATENTRY> GetImports(const std::string& name);
+        virtual std::vector<VMMDLL_MAP_MODULEENTRY> GetModules();
         virtual std::vector<VMMDLL_MAP_THREADENTRY> GetThreads();
+
+        // easier to access import/export lookups
+
+        virtual uint64_t GetExport(const std::string& moduleName, const std::string& exportName);
+        virtual uint64_t GetImport(const std::string& moduleName, const std::string& importName);
+
+        // utils for cheating / exploiting
 
         virtual uint64_t FindPattern(
                 uint64_t start,

@@ -294,4 +294,34 @@ namespace memstream {
         return results;
     }
 
+    uint64_t Process::GetExport(const std::string &moduleName, const std::string &exportName) {
+        auto exports = this->GetExports(moduleName);
+        for(auto &entry : exports) {
+            // case insensitive compare desired name with actual export name
+            std::string funcName(entry.uszFunction);
+            if(std::equal(exportName.begin(), exportName.end(), funcName.begin(), [](char a, char b) {
+                return std::tolower(a) == std::tolower(b);
+            }))
+            {
+                return entry.vaFunction;
+            }
+        }
+        return 0;
+    }
+
+    uint64_t Process::GetImport(const std::string &moduleName, const std::string &importName) {
+        auto imports = this->GetImports(moduleName);
+        for(auto &entry : imports) {
+            // case insensitive compare desired name with actual export name
+            std::string funcName(entry.uszFunction);
+            if(std::equal(importName.begin(), importName.end(), funcName.begin(), [](char a, char b) {
+                return std::tolower(a) == std::tolower(b);
+            }))
+            {
+                return entry.vaFunction;
+            }
+        }
+        return 0;
+    }
+
 } // memstream
