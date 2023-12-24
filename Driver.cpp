@@ -5,9 +5,9 @@
 #include <cassert>
 #include <utility>
 #include <vmmdll.h>
+
 #include "FPGA.h"
 #include "Process.h"
-
 #include "Driver.h"
 
 namespace memstream {

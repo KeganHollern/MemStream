@@ -7,7 +7,6 @@
 #include <vmmdll.h>
 
 #include "FPGA.h"
-
 #include "Process.h"
 
 namespace memstream {

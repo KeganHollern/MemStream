@@ -1,8 +1,8 @@
 //
 // Created by Kegan Hollern on 12/23/23.
 //
-#include <vmmdll.h>
 #include <cassert>
+#include <vmmdll.h>
 
 #include "FPGA.h"
 
@@ -27,9 +27,8 @@ namespace memstream {
     }
     FPGA::~FPGA() {
         if(gDevice == this) gDevice = nullptr;
-
         assert(this->vmm && "deconstructing with invalid hVMM");
-        //TODO: vmmdll_close() ???
+        VMMDLL_Close(this->vmm);
     }
 
     void FPGA::DisableMasterAbort() {

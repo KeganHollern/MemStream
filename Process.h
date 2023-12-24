@@ -20,6 +20,7 @@ namespace memstream {
         virtual bool Read(uint64_t addr, void *buffer, uint32_t size);
 
         virtual bool Write(uint64_t addr, void *buffer, uint32_t size);
+
         // ModuleInfo(name) info_t
         // Exports(name) export_t[]
         // Imports(name) import_t[]
