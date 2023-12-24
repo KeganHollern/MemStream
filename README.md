@@ -1,6 +1,18 @@
 # MemStream
 
-MemStream is a utility for reading and writing process memory to Windows over DMA FPGA devices. 
+MemStream is a wrapper for [MemProcFS](#) providing a simplified C++ interface for FPGA-based DMA application development.
 
-It is built as a wrapper around [MemProcFS](#) which expands on the memory read/write capabilities.
+```c++
+#include <cstdint>
+#include <Process.h>
 
+void example() {
+    Process notepad("notepad.exe");
+    uint64_t base = notepad.GetModuleBase("notepad.exe");
+    uint8_t data = 0;
+    if(!notepad.Read(base, &data, 1)) {
+        printf("???");
+    }
+    printf("%x", data);
+}
+```
