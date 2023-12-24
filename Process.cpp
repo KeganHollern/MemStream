@@ -70,7 +70,7 @@ namespace memstream {
                 VMM_READ_FLAGS);
     }
 
-    bool Process::ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps) {
+    bool Process::ReadMany(std::vector<std::tuple<uint64_t, uint8_t*, uint32_t>> &readOps) {
         assert(this->pFPGA && "null fpga");
         assert(this->getPid() && "null pid");
 
@@ -198,6 +198,100 @@ namespace memstream {
 
     uint64_t Process::FindCave(uint64_t start, uint64_t stop) {
         assert(false && "not implemented");
+    }
+
+    std::vector<VMMDLL_MAP_EATENTRY> Process::GetExports(const std::string &name) {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
+        std::vector<VMMDLL_MAP_EATENTRY> results;
+
+        PVMMDLL_MAP_EAT pEAT = nullptr;
+        bool ok = VMMDLL_Map_GetEATU(
+                this->pFPGA->getVmm(),
+                this->getPid(),
+                (char*)name.c_str(),
+                &pEAT);
+        if(!ok) return results;
+
+        if(pEAT->dwVersion != VMMDLL_MAP_EAT_VERSION) {
+            VMMDLL_MemFree(pEAT);
+            return results;
+        }
+
+        PVMMDLL_MAP_EATENTRY pEATEntry;
+        for(int i = 0; i < pEAT->cMap; i++) {
+            pEATEntry = pEAT->pMap + i;
+            if(!pEATEntry) continue;
+
+            results.push_back(*pEATEntry);
+        }
+
+        VMMDLL_MemFree(pEAT);
+        return results;
+    }
+
+    std::vector<VMMDLL_MAP_IATENTRY> Process::GetImports(const std::string &name) {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
+        std::vector<VMMDLL_MAP_IATENTRY> results;
+
+        PVMMDLL_MAP_IAT pIAT = nullptr;
+        bool ok = VMMDLL_Map_GetIATU(
+                this->pFPGA->getVmm(),
+                this->getPid(),
+                (char*)name.c_str(),
+                &pIAT);
+        if(!ok) return results;
+
+        if(pIAT->dwVersion != VMMDLL_MAP_IAT_VERSION) {
+            VMMDLL_MemFree(pIAT);
+            return results;
+        }
+
+        PVMMDLL_MAP_IATENTRY pIATEntry;
+        for(int i = 0; i < pIAT->cMap; i++) {
+            pIATEntry = pIAT->pMap + i;
+            if(!pIATEntry) continue;
+
+            results.push_back(*pIATEntry);
+        }
+
+        VMMDLL_MemFree(pIAT);
+        return results;
+    }
+
+    std::vector<VMMDLL_MAP_THREADENTRY> Process::GetThreads() {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
+        std::vector<VMMDLL_MAP_THREADENTRY> results;
+
+        PVMMDLL_MAP_THREAD pThreads = nullptr;
+        bool ok = VMMDLL_Map_GetThread(
+                this->pFPGA->getVmm(),
+                this->getPid(),
+                &pThreads);
+        if(!ok) return results;
+
+        if(pThreads->dwVersion != VMMDLL_MAP_THREAD_VERSION) {
+            VMMDLL_MemFree(pThreads);
+            return results;
+        }
+
+        //TODO: for this pattern lets do RESIZE and copy data into the results vector
+        // this will turn X allocations/resizes into only 1 regardless of cMap size
+        PVMMDLL_MAP_THREADENTRY pThreadEntry;
+        for(int i = 0; i < pThreads->cMap; i++) {
+            pThreadEntry = pThreads->pMap + i;
+            if(!pThreadEntry) continue;
+
+            results.push_back(*pThreadEntry);
+        }
+
+        VMMDLL_MemFree(pThreads);
+        return results;
     }
 
 } // memstream

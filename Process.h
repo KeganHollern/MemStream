@@ -18,17 +18,16 @@ namespace memstream {
         virtual ~Process();
 
         virtual bool Read(uint64_t addr, uint8_t *buffer, uint32_t size);
-        virtual bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &op);
+        virtual bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t*, uint32_t>> &readOps);
 
         virtual bool Write(uint64_t addr, uint8_t *buffer, uint32_t size);
 
         virtual uint64_t GetModuleBase(const std::string& name);
         virtual bool GetModuleInfo(const std::string& name, VMMDLL_MAP_MODULEENTRY& info);
         virtual std::vector<VMMDLL_MAP_MODULEENTRY> GetModules();
-
-        // ModuleInfo(name) info_t
-        // Exports(name) export_t[]
-        // Imports(name) import_t[]
+        virtual std::vector<VMMDLL_MAP_EATENTRY> GetExports(const std::string& name);
+        virtual std::vector<VMMDLL_MAP_IATENTRY> GetImports(const std::string& name);
+        virtual std::vector<VMMDLL_MAP_THREADENTRY> GetThreads();
 
         virtual uint64_t FindPattern(
                 uint64_t start,
@@ -39,6 +38,7 @@ namespace memstream {
         virtual uint64_t FindCave(
                 uint64_t start,
                 uint64_t stop);
+
         // Dump(disk_path)
         // Execute(fnc, args...) rax
         // Hook ?
