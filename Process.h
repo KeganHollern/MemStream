@@ -21,6 +21,10 @@ namespace memstream {
 
         virtual bool Write(uint64_t addr, void *buffer, uint32_t size);
 
+        virtual uint64_t GetModuleBase(const std::string& name);
+        virtual bool GetModuleInfo(const std::string& name, VMMDLL_MAP_MODULEENTRY& info);
+        virtual std::vector<VMMDLL_MAP_MODULEENTRY> GetModules();
+
         // ModuleInfo(name) info_t
         // Exports(name) export_t[]
         // Imports(name) import_t[]
@@ -40,12 +44,10 @@ namespace memstream {
         // Threads ?
 
     private:
-        bool is64bit;
-        uint32_t pid;
+        VMMDLL_PROCESS_INFORMATION info;
         FPGA* pFPGA;
     public:
         bool isIs64Bit() const;
-
         uint32_t getPid() const;
     };
 

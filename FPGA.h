@@ -19,12 +19,15 @@ namespace memstream {
 
         virtual ~FPGA();
 
-        virtual void DisableMasterAbort();
+        virtual bool DisableMasterAbort();
+        virtual std::vector<uint32_t> GetAllProcessesByName(const std::string& name);
+        virtual bool GetProcessInfo(uint32_t pid, VMMDLL_PROCESS_INFORMATION &info);
 
         VMM_HANDLE getVmm();
 
     private:
         VMM_HANDLE vmm;
+
     };
 
 } // memstream
