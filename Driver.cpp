@@ -3,6 +3,7 @@
 //
 #include <string>
 #include <cassert>
+#include <utility>
 #include <vmmdll.h>
 #include "FPGA.h"
 #include "Process.h"
@@ -10,12 +11,9 @@
 #include "Driver.h"
 
 namespace memstream {
-    Driver::Driver(FPGA* pFPGA, std::string name) {
-        //TODO: actually use the last process and not the first one
+    extern FPGA* gDevice;
 
-        pCsrss = new Process(pFPGA, "csrss.exe");
-    }
-    Driver::~Driver() {
-        delete pCsrss;
-    }
+    Driver::Driver(const std::string &name) : Driver(gDevice, name) {}
+    Driver::Driver(FPGA* pFPGA, std::string name) : Process(pFPGA, "csrss.exe"), name(std::move(name)) {}
+    Driver::~Driver() = default;
 } // memstream
