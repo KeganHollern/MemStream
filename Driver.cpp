@@ -3,6 +3,7 @@
 //
 #include <string>
 #include <cassert>
+#include <vmmdll.h>
 #include "FPGA.h"
 #include "Process.h"
 

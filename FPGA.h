@@ -21,7 +21,7 @@ namespace memstream {
 
         virtual void DisableMasterAbort();
 
-        const tdVMM_HANDLE *getVmm() const;
+        VMM_HANDLE getVmm();
 
     private:
         VMM_HANDLE vmm;
