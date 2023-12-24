@@ -9,7 +9,7 @@ option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
 add_subdirectory("deps/zydis")
 
-add_library(MemStream FPGA.cpp Process.cpp Driver.cpp)
+add_library(MemStream FPGA.cpp Process.cpp Driver.cpp utils.cpp utils.h)
 # add options to hide warnings for unsafe string type conversions
 target_compile_options(MemStream PRIVATE -Wno-writable-strings)
 
@@ -19,11 +19,11 @@ add_definitions(-DLINUX)
 include_directories(includes)
 
 # TODO: fix linker errors
-#find_library(LeechCore leechcore lib)
-#target_link_libraries(MemStream LINK_PUBLIC ${LeechCore})
+find_library(LeechCore leechcore lib)
+target_link_libraries(MemStream LINK_PUBLIC ${LeechCore})
 
-#find_library(MemProcFS vmm lib)
-#target_link_libraries(MemStream LINK_PUBLIC ${MemProcFS})
+find_library(MemProcFS vmm lib)
+target_link_libraries(MemStream LINK_PUBLIC ${MemProcFS})
 
 
 target_link_libraries(MemStream PRIVATE "Zydis")

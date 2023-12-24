@@ -9,17 +9,18 @@ namespace memstream {
 
     class Process {
     public:
-        Process(uint32_t pid);
-        Process(const std::string& name);
+        explicit Process(uint32_t pid);
+        explicit Process(const std::string& name);
 
         Process(FPGA *pFPGA, uint32_t pid);
         Process(FPGA *pFPGA, const std::string& name);
 
         virtual ~Process();
 
-        virtual bool Read(uint64_t addr, void *buffer, uint32_t size);
+        virtual bool Read(uint64_t addr, uint8_t *buffer, uint32_t size);
+        virtual bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &op);
 
-        virtual bool Write(uint64_t addr, void *buffer, uint32_t size);
+        virtual bool Write(uint64_t addr, uint8_t *buffer, uint32_t size);
 
         virtual uint64_t GetModuleBase(const std::string& name);
         virtual bool GetModuleInfo(const std::string& name, VMMDLL_MAP_MODULEENTRY& info);
@@ -49,6 +50,7 @@ namespace memstream {
     public:
         bool isIs64Bit() const;
         uint32_t getPid() const;
+
     };
 
 } // memstream
