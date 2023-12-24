@@ -10,9 +10,7 @@
 #include "Process.h"
 
 namespace memstream {
-    extern FPGA *gDevice;
-
-    Process::Process(uint32_t pid) : Process(gDevice, pid) {}
+    Process::Process(uint32_t pid) : Process(GetDefaultFPGA(), pid) {}
 
     Process::Process(FPGA *pFPGA, uint32_t pid) : info() {
         if(!pFPGA)
@@ -24,7 +22,7 @@ namespace memstream {
         this->pFPGA = pFPGA;
     }
 
-    Process::Process(const std::string &name) : Process(gDevice, name) {}
+    Process::Process(const std::string &name) : Process(GetDefaultFPGA(), name) {}
 
     Process::Process(FPGA *pFPGA, const std::string &name) : info() {
         if(!pFPGA)
@@ -43,47 +41,67 @@ namespace memstream {
     Process::~Process() = default;
 
     bool Process::isIs64Bit() const {
+        assert(this->pFPGA && "null fpga");
+
         return this->info.tpMemoryModel == VMMDLL_MEMORYMODEL_X64;
     }
 
     uint32_t Process::getPid() const {
+        assert(this->pFPGA && "null fpga");
+
         return this->info.dwPID;
     }
 
     bool Process::Read(uint64_t addr, uint8_t *buffer, uint32_t size) {
-        DWORD read = 0;
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
+        if(!addr) return false;
+        if(!buffer) return false;
+        if(!size) return false;
+
         return VMMDLL_MemReadEx(
                 this->pFPGA->getVmm(),
                 this->getPid(),
                 addr,
                 buffer,
                 size,
-                &read,
+                nullptr,
                 VMM_READ_FLAGS);
     }
 
     bool Process::ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps) {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
         // init VMM scatter
         VMMDLL_SCATTER_HANDLE hScatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
                 this->getPid(),
                 VMM_READ_FLAGS);
-        // TODO: proper error handling
-        assert(hScatter && "failed to init scatter");
+        if(!hScatter) return false;
 
         // push all reads into the scatter
         for (auto &read: readOps) {
             uint64_t addr = std::get<0>(read);
             uint8_t *buf = std::get<1>(read);
             uint32_t len = std::get<2>(read);
-            bool ok = VMMDLL_Scatter_PrepareEx(
+
+            // skip bad reads rather than fail out....
+            if(!addr) continue;
+            if(!buf) continue;
+            if(!len) continue;
+
+            if(!VMMDLL_Scatter_PrepareEx(
                     hScatter,
                     addr,
                     len,
                     buf,
-                    nullptr); // is NULL allowed here?
-            //TODO: proper error handling
-            assert(ok && "failed to add read to scatter");
+                    nullptr))
+            {
+                VMMDLL_Scatter_CloseHandle(hScatter);
+                return false;
+            }
         }
 
         // execute read & clean up mem
@@ -98,6 +116,13 @@ namespace memstream {
     }
 
     bool Process::Write(uint64_t addr, uint8_t *buffer, uint32_t size) {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
+        if(!addr) return false;
+        if(!buffer) return false;
+        if(!size) return false;
+
         return VMMDLL_MemWrite(
                 this->pFPGA->getVmm(),
                 this->getPid(),
@@ -107,10 +132,13 @@ namespace memstream {
     }
 
     uint64_t Process::FindPattern(uint64_t start, uint64_t stop, uint8_t *pattern, uint8_t *mask) {
-        return 0;
+        assert(false && "not implemented");
     }
 
     uint64_t Process::GetModuleBase(const std::string &name) {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
         return VMMDLL_ProcessGetModuleBaseU(
                 this->pFPGA->getVmm(),
                 this->getPid(),
@@ -118,6 +146,8 @@ namespace memstream {
     }
 
     bool Process::GetModuleInfo(const std::string &name, VMMDLL_MAP_MODULEENTRY &entry) {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
 
         // reading will alloc a ptr we need to free
         PVMMDLL_MAP_MODULEENTRY pModuleMapEntry;
@@ -140,10 +170,12 @@ namespace memstream {
     }
 
     std::vector<VMMDLL_MAP_MODULEENTRY> Process::GetModules() {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
         std::vector<VMMDLL_MAP_MODULEENTRY> results;
 
         PVMMDLL_MAP_MODULE pModuleMap = nullptr;
-
         if (!VMMDLL_Map_GetModuleU(this->pFPGA->getVmm(), this->getPid(), &pModuleMap, 0))
             return results;
 
@@ -165,7 +197,7 @@ namespace memstream {
     }
 
     uint64_t Process::FindCave(uint64_t start, uint64_t stop) {
-        return 0;
+        assert(false && "not implemented");
     }
 
 } // memstream

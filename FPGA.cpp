@@ -12,31 +12,39 @@
 #include "FPGA.h"
 
 namespace memstream {
-    // this might be retarded
-    //TODO: ? global singleton ?
+    // 99.99% of users don't need multiple
+    // devices. So we have a "default" device
+    // which is auto-constructed
+    // whenever any of the objects (process/driver/ect.)
+    // are used.
     FPGA* gDevice = nullptr;
+    FPGA* GetDefaultFPGA() {
+        if(!gDevice) {
+            gDevice = new FPGA();
+            assert(gDevice);
+        }
+        return gDevice;
+    }
 
     FPGA::FPGA() {
-        if(gDevice == nullptr) gDevice = this;
-
-        char* args[4] = {};
+        static char* args[4] = {};
         args[0] = "";
         args[1] = "-device";
         args[2] = "fpga";
 
-        PLC_CONFIG_ERRORINFO err = nullptr;
-        this->vmm = VMMDLL_InitializeEx(3, args, &err);
-
-        assert(this->vmm && "failed to initialize FPGA");
-        //TODO: throw exception on error
+        this->vmm = VMMDLL_Initialize(3, args);
+        if(!this->vmm)
+            throw std::runtime_error("failed to initialize device");
     }
     FPGA::~FPGA() {
-        if(gDevice == this) gDevice = nullptr;
-        assert(this->vmm && "deconstructing with invalid hVMM");
+        assert(this->vmm && "null vmm");
+
         VMMDLL_Close(this->vmm);
     }
 
     bool FPGA::DisableMasterAbort() {
+        assert(this->vmm && "null vmm");
+
         ULONG64 qwID = 0, qwVersionMajor = 0, qwVersionMinor = 0;
 
         if (!VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_FPGA_ID, &qwID) ||
@@ -47,13 +55,13 @@ namespace memstream {
         if (qwVersionMajor < 4 || (qwVersionMajor < 5 && qwVersionMinor < 7))
             return false; // must be version 4.7 or newer!
 
-        HANDLE hLC;
         LC_CONFIG LcConfig = {
                 .dwVersion = LC_CONFIG_VERSION,
                 .szDevice = "existing"
         };
+
         // fetch already existing leechcore handle.
-        hLC = LcCreate(&LcConfig);
+        HANDLE hLC = LcCreate(&LcConfig);
         if(!hLC) return false;
 
         // enable auto-clear of status register [master abort].
@@ -64,6 +72,7 @@ namespace memstream {
                 (BYTE[4]) { 0x10, 0x00, 0x10, 0x00 },
                 nullptr,
                 nullptr);
+
         // close leechcore handle.
         LcClose(hLC);
 
@@ -71,10 +80,14 @@ namespace memstream {
     }
 
     VMM_HANDLE FPGA::getVmm() {
-        return vmm;
+        assert(this->vmm && "null vmm");
+
+        return this->vmm;
     }
 
     bool FPGA::GetProcessInfo(uint32_t pid, VMMDLL_PROCESS_INFORMATION& info) {
+        assert(this->vmm && "null vmm");
+
         SIZE_T cbInfo = sizeof(VMMDLL_PROCESS_INFORMATION);
         info.magic = VMMDLL_PROCESS_INFORMATION_MAGIC;
         info.wVersion = VMMDLL_PROCESS_INFORMATION_VERSION;
@@ -82,11 +95,12 @@ namespace memstream {
     }
 
     std::vector<uint32_t> FPGA::GetAllProcessesByName(const std::string &name) {
+        assert(this->vmm && "null vmm");
+
         std::vector<uint32_t> results;
 
         PDWORD pdwPIDs;
         SIZE_T cPIDs = 0;
-
         if(!VMMDLL_PidList(this->vmm, nullptr, &cPIDs)) return results;
 
         // we use alloca to store tmp data on stack for perf
@@ -116,6 +130,5 @@ namespace memstream {
 
         return results;
     }
-
 
 } // memstream

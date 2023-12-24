@@ -9,18 +9,16 @@
 
 namespace memstream {
 
-    //TODO: this may be the wrong approach...
-    //TODO: make process a child of driver I guess (because `is64bit` isn't useful here and nore is PID)
-    class Driver : Process {
+    class Driver {
     public:
-        Driver(const std::string& name);
-        Driver(FPGA *pFPGA, std::string name);
+        explicit Driver(const std::string& name);
+        Driver(FPGA *pFPGA, const std::string& name);
+        Driver(FPGA *pFPGA, uint32_t csrss, const std::string& name);
 
         virtual ~Driver();
-
-        //TODO: base everyhting off the DRIVER module from csrss or something
     private:
-        const std::string name;
+        VMMDLL_MAP_MODULEENTRY info;
+        Process* proc;
     };
 
 } // memstream

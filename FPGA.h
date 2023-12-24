@@ -29,6 +29,7 @@ namespace memstream {
 
     };
 
+    FPGA* GetDefaultFPGA();
 } // memstream
 
 #endif //MEMSTREAM_FPGA_H
