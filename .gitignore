@@ -89,7 +89,6 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 
-includes/
-lib/
+deps/memprocfs/
 
 .DS_Store
