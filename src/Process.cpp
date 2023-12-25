@@ -6,8 +6,8 @@
 #include <string>
 #include <vmmdll.h>
 
-#include "FPGA.h"
-#include "Process.h"
+#include "MemStream/FPGA.h"
+#include "MemStream/Process.h"
 
 namespace memstream {
     Process::Process(uint32_t pid) : Process(GetDefaultFPGA(), pid) {}

@@ -5,7 +5,19 @@
 #ifndef MEMSTREAM_DRIVER_H
 #define MEMSTREAM_DRIVER_H
 
-#include "api.h"
+#if defined(_WIN32)
+#if defined(MEMSTREAM_EXPORTS)
+#define MEMSTREAM_API __declspec(dllexport)
+#else
+#define MEMSTREAM_API __declspec(dllimport)
+#endif
+#else
+#if __GNUC__ >= 4
+#define MEMSTREAM_API __attribute__ ((visibility ("default")))
+#else
+#define MEMSTREAM_API
+#endif
+#endif
 
 namespace memstream {
 

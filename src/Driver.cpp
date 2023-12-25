@@ -6,9 +6,9 @@
 #include <utility>
 #include <vmmdll.h>
 
-#include "FPGA.h"
-#include "Process.h"
-#include "Driver.h"
+#include "MemStream/FPGA.h"
+#include "MemStream/Process.h"
+#include "MemStream/Driver.h"
 
 namespace memstream {
     // ex: Driver("win32kbase.sys")

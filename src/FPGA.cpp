@@ -9,7 +9,7 @@
 #include <cctype>
 #include <vmmdll.h>
 
-#include "FPGA.h"
+#include "MemStream/FPGA.h"
 
 namespace memstream {
     // 99.99% of users don't need multiple

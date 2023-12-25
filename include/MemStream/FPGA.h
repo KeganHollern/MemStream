@@ -5,7 +5,19 @@
 #ifndef MEMSTREAM_FPGA_H
 #define MEMSTREAM_FPGA_H
 
-#include "api.h"
+#if defined(_WIN32)
+#if defined(MEMSTREAM_EXPORTS)
+#define MEMSTREAM_API __declspec(dllexport)
+#else
+#define MEMSTREAM_API __declspec(dllimport)
+#endif
+#else
+#if __GNUC__ >= 4
+#define MEMSTREAM_API __attribute__ ((visibility ("default")))
+#else
+#define MEMSTREAM_API
+#endif
+#endif
 
 namespace memstream {
 
@@ -17,6 +29,7 @@ namespace memstream {
 
     class MEMSTREAM_API FPGA {
     public:
+        // TODO: add a constructor which takes the device ID
         FPGA();
 
         virtual ~FPGA();
