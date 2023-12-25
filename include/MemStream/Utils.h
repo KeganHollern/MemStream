@@ -2,8 +2,8 @@
 // Created by Kegan Hollern on 12/24/23.
 //
 
-#ifndef MEMSTREAM_WDUTILS_H
-#define MEMSTREAM_WDUTILS_H
+#ifndef MEMSTREAM_UTILS_H
+#define MEMSTREAM_UTILS_H
 
 #if defined(_WIN32)
 #if defined(MEMSTREAM_EXPORTS)
@@ -27,6 +27,7 @@ namespace memstream::page {
     MEMSTREAM_API uint64_t offset(uint64_t address);
 }
 namespace memstream::log {
-    MEMSTREAM_API void PrintBuffer(void *buffer, uint32_t size);
+    MEMSTREAM_API void buffer(void *buffer, uint32_t size);
 }
-#endif //MEMSTREAM_WDUTILS_H
+
+#endif //MEMSTREAM_UTILS_H

@@ -26,7 +26,7 @@ namespace memstream::page {
 
 namespace memstream::log {
 
-    void PrintBuffer(void *buffer, uint32_t size) {
+    void buffer(void *buffer, uint32_t size) {
         for (int i = 0; i < size; i++) {
             unsigned char *address = (unsigned char *) (((uint64_t) buffer) + i);
 
