@@ -47,6 +47,7 @@ Those marked `?` I am unsure about including.
   - [ ] Dump Process
   - [ ] Find Pattern
   - [ ] Find Code Cave
+  - [ ] Refactor "Driver" Logic
   - [ ] Shellcode Injection ?
   - [ ] Function Calling ?
   - [ ] Inline Hooking ?
@@ -54,7 +55,6 @@ Those marked `?` I am unsure about including.
   - [ ] Thread Hijacking ?
   - [ ] Kernel Module Manual Mapping ?
   - [ ] Mono Dissection Utils ?
-  - [ ] Refactor "Driver" Logic?
 - [ ] Create Example Apps
   - [x] Basic example
   - [ ] Driver example (keyboard? mouse?)

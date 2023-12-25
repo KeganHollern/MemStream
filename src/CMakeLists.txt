@@ -1,5 +1,6 @@
-file(GLOB SOURCES "./*.cpp")
-add_library(MemStream SHARED ${SOURCES})
+file(GLOB ROOT "./*.cpp")
+file(GLOB WIN "./win/*.cpp")
+add_library(MemStream SHARED ${ROOT} ${WIN})
 
 target_include_directories(MemStream PUBLIC ../include)
 
