@@ -19,6 +19,8 @@
 #endif
 #endif
 
+#include <vmmdll.h>
+
 namespace memstream {
 
     uint64_t VMM_READ_FLAGS =

@@ -19,6 +19,9 @@
 #endif
 #endif
 
+#include <vmmdll.h>
+#include <MemStream/FPGA.h>
+
 namespace memstream {
 
     class MEMSTREAM_API Process {
@@ -80,7 +83,6 @@ namespace memstream {
         // Dump(disk_path)
         // Execute(fnc, args...) rax
         // Hook ?
-        // Threads ?
 
     private:
         VMMDLL_PROCESS_INFORMATION info;

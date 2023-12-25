@@ -19,6 +19,10 @@
 #endif
 #endif
 
+#include <vmmdll.h>
+#include <MemStream/FPGA.h>
+#include <MemStream/Process.h>
+
 namespace memstream {
 
     class MEMSTREAM_API Driver {

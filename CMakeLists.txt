@@ -26,3 +26,5 @@ option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
 add_subdirectory(deps/zydis)
 target_link_libraries(MemStream PRIVATE Zydis)
+
+add_subdirectory(example)
