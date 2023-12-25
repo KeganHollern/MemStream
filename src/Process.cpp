@@ -3,6 +3,7 @@
 //
 #include <cstdint>
 #include <cassert>
+#include <sstream>
 #include <string>
 #include <vmmdll.h>
 
@@ -130,8 +131,59 @@ namespace memstream {
                 size);
     }
 
-    uint64_t Process::FindPattern(uint64_t start, uint64_t stop, uint8_t *pattern, uint8_t *mask) {
-        assert(false && "not implemented");
+    // ex: IDA pattern: 00 0A FF FF ?? ?? ?? ?? C3
+
+    std::vector<std::tuple<uint8_t, bool>> Process::parsePattern(const std::string& pattern) {
+        std::vector<std::tuple<uint8_t, bool>> result;
+
+        std::istringstream iss(pattern);
+        std::string hexStr;
+
+        while (iss >> hexStr) {
+            if(hexStr.empty()) continue;
+            if(hexStr == "?" || hexStr == "??") {
+                result.emplace_back(0, false);
+            } else {
+                auto byte = static_cast<uint8_t>(std::stoul(hexStr, nullptr, 16));
+                result.emplace_back(byte, true);
+            }
+        }
+
+        return result;
+    }
+
+    uint64_t Process::FindPattern(uint64_t start, uint64_t stop, const std::string& pattern) {
+        auto search = this->parsePattern(pattern);
+
+        uint32_t len = stop - start;
+
+        auto buffer = new uint8_t[len];
+        if(!this->Read(start, buffer, len))
+            return 0;
+
+
+        for(int i = 0; i < len-search.size();i++) {
+            bool found = true;
+            for(int j = 0; j < search.size();j++) {
+                assert(i+j < len && "invalid pattern search range");
+
+                auto& entry = search[j];
+
+                if(!std::get<1>(entry)) continue; // wildcard
+
+                if(std::get<0>(entry) != buffer[i+j]) {
+                    found = false;
+                    break; // nonmatching required byte
+                }
+            }
+            if(found) {
+                delete[] buffer;
+                return (start + i);
+            }
+        }
+
+        delete[] buffer;
+        return 0;
     }
 
     uint64_t Process::GetModuleBase(const std::string &name) {

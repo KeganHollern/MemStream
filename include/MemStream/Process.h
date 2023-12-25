@@ -73,8 +73,7 @@ namespace memstream {
         virtual uint64_t FindPattern(
                 uint64_t start,
                 uint64_t stop,
-                uint8_t *pattern,
-                uint8_t *mask);
+                const std::string& pattern);
 
         virtual uint64_t FindCave(
                 uint64_t start,
@@ -87,11 +86,13 @@ namespace memstream {
     private:
         VMMDLL_PROCESS_INFORMATION info;
         FPGA *pFPGA;
+
+
+        static std::vector<std::tuple<uint8_t, bool>> parsePattern(const std::string &pattern);
     public:
         bool isIs64Bit() const;
 
         uint32_t getPid() const;
-
     };
 
 } // memstream
