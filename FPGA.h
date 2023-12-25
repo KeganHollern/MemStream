@@ -5,6 +5,8 @@
 #ifndef MEMSTREAM_FPGA_H
 #define MEMSTREAM_FPGA_H
 
+#include "api.h"
+
 namespace memstream {
 
     uint64_t VMM_READ_FLAGS =
@@ -13,23 +15,25 @@ namespace memstream {
             VMMDLL_FLAG_NOPAGING |
             VMMDLL_FLAG_NOCACHEPUT;
 
-    class FPGA {
+    MEMSTREAM_API class FPGA {
     public:
         FPGA();
 
         virtual ~FPGA();
 
         virtual bool DisableMasterAbort();
-        virtual std::vector<uint32_t> GetAllProcessesByName(const std::string& name);
+
+        virtual std::vector<uint32_t> GetAllProcessesByName(const std::string &name);
+
         virtual bool GetProcessInfo(uint32_t pid, VMMDLL_PROCESS_INFORMATION &info);
 
         VMM_HANDLE getVmm();
+
     private:
         VMM_HANDLE vmm;
-
     };
 
-    FPGA* GetDefaultFPGA();
+    MEMSTREAM_API FPGA *GetDefaultFPGA();
 } // memstream
 
 #endif //MEMSTREAM_FPGA_H

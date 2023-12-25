@@ -13,27 +13,29 @@
 namespace memstream {
     // ex: Driver("win32kbase.sys")
     Driver::Driver(const std::string &name) : Driver(GetDefaultFPGA(), name) {}
-    Driver::Driver(FPGA* pFPGA, const std::string& name) : info() {
-        if(!pFPGA)
+
+    Driver::Driver(FPGA *pFPGA, const std::string &name) : info() {
+        if (!pFPGA)
             throw std::invalid_argument("invalid fpga");
 
         auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
-        if(pids.empty())
+        if (pids.empty())
             throw std::runtime_error("failed to find csrss.exe");
 
         uint32_t pid = *pids.end();
         this->proc = new Process(pFPGA, pid);
 
-        if(!this->proc->GetModuleInfo(name, this->info))
+        if (!this->proc->GetModuleInfo(name, this->info))
             throw std::runtime_error("failed to find driver");
     }
+
     Driver::Driver(FPGA *pFPGA, uint32_t csrss, const std::string &name) : info() {
-        if(!pFPGA)
+        if (!pFPGA)
             throw std::invalid_argument("invalid fpga");
 
         this->proc = new Process(pFPGA, csrss);
 
-        if(!this->proc->GetModuleInfo(name, this->info))
+        if (!this->proc->GetModuleInfo(name, this->info))
             throw std::runtime_error("failed to find driver");
     }
 

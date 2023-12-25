@@ -4,12 +4,17 @@
 
 #ifndef MEMSTREAM_UTILS_H
 #define MEMSTREAM_UTILS_H
+
+#include "api.h"
+
 namespace memstream::page {
-    uint64_t current(uint64_t address);
-    uint64_t next(uint64_t address);
-    uint64_t offset(uint64_t address);
+    MEMSTREAM_API uint64_t current(uint64_t address);
+
+    MEMSTREAM_API uint64_t next(uint64_t address);
+
+    MEMSTREAM_API uint64_t offset(uint64_t address);
 }
 namespace memstream::log {
-    void PrintBuffer(void* buffer, uint32_t size);
+    MEMSTREAM_API void PrintBuffer(void *buffer, uint32_t size);
 }
 #endif //MEMSTREAM_UTILS_H

@@ -5,22 +5,27 @@
 #ifndef MEMSTREAM_PROCESS_H
 #define MEMSTREAM_PROCESS_H
 
+#include "api.h"
+
 namespace memstream {
 
-    class Process {
+    MEMSTREAM_API class Process {
     public:
         explicit Process(uint32_t pid);
-        explicit Process(const std::string& name);
+
+        explicit Process(const std::string &name);
 
         Process(FPGA *pFPGA, uint32_t pid);
-        Process(FPGA *pFPGA, const std::string& name);
+
+        Process(FPGA *pFPGA, const std::string &name);
 
         virtual ~Process();
 
         // reads
 
         virtual bool Read(uint64_t addr, uint8_t *buffer, uint32_t size);
-        virtual bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t*, uint32_t>> &readOps);
+
+        virtual bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
 
         // writes
 
@@ -28,20 +33,25 @@ namespace memstream {
 
         // info stuff
 
-        virtual uint64_t GetModuleBase(const std::string& name);
-        virtual bool GetModuleInfo(const std::string& name, VMMDLL_MAP_MODULEENTRY& info);
+        virtual uint64_t GetModuleBase(const std::string &name);
+
+        virtual bool GetModuleInfo(const std::string &name, VMMDLL_MAP_MODULEENTRY &info);
 
         // map getters
 
-        virtual std::vector<VMMDLL_MAP_EATENTRY> GetExports(const std::string& name);
-        virtual std::vector<VMMDLL_MAP_IATENTRY> GetImports(const std::string& name);
+        virtual std::vector<VMMDLL_MAP_EATENTRY> GetExports(const std::string &name);
+
+        virtual std::vector<VMMDLL_MAP_IATENTRY> GetImports(const std::string &name);
+
         virtual std::vector<VMMDLL_MAP_MODULEENTRY> GetModules();
+
         virtual std::vector<VMMDLL_MAP_THREADENTRY> GetThreads();
 
         // easier to access import/export lookups
 
-        virtual uint64_t GetExport(const std::string& moduleName, const std::string& exportName);
-        virtual uint64_t GetImport(const std::string& moduleName, const std::string& importName);
+        virtual uint64_t GetExport(const std::string &moduleName, const std::string &exportName);
+
+        virtual uint64_t GetImport(const std::string &moduleName, const std::string &importName);
 
         // utils for cheating / exploiting
 
@@ -62,9 +72,10 @@ namespace memstream {
 
     private:
         VMMDLL_PROCESS_INFORMATION info;
-        FPGA* pFPGA;
+        FPGA *pFPGA;
     public:
         bool isIs64Bit() const;
+
         uint32_t getPid() const;
 
     };

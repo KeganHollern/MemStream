@@ -13,10 +13,10 @@ namespace memstream {
     Process::Process(uint32_t pid) : Process(GetDefaultFPGA(), pid) {}
 
     Process::Process(FPGA *pFPGA, uint32_t pid) : info() {
-        if(!pFPGA)
+        if (!pFPGA)
             throw std::invalid_argument("invalid fpga provided");
 
-        if(!pFPGA->GetProcessInfo(pid, this->info))
+        if (!pFPGA->GetProcessInfo(pid, this->info))
             throw std::runtime_error("failed to get process info");
 
         this->pFPGA = pFPGA;
@@ -25,14 +25,14 @@ namespace memstream {
     Process::Process(const std::string &name) : Process(GetDefaultFPGA(), name) {}
 
     Process::Process(FPGA *pFPGA, const std::string &name) : info() {
-        if(!pFPGA)
+        if (!pFPGA)
             throw std::invalid_argument("invalid fpga provided");
 
         uint32_t foundPid = 0;
-        if(!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) name.c_str(), &foundPid))
+        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) name.c_str(), &foundPid))
             throw std::runtime_error("failed to find process with name");
 
-        if(!pFPGA->GetProcessInfo(foundPid, this->info))
+        if (!pFPGA->GetProcessInfo(foundPid, this->info))
             throw std::runtime_error("failed to get process info");
 
         this->pFPGA = pFPGA;
@@ -56,9 +56,9 @@ namespace memstream {
         assert(this->pFPGA && "null fpga");
         assert(this->getPid() && "null pid");
 
-        if(!addr) return false;
-        if(!buffer) return false;
-        if(!size) return false;
+        if (!addr) return false;
+        if (!buffer) return false;
+        if (!size) return false;
 
         return VMMDLL_MemReadEx(
                 this->pFPGA->getVmm(),
@@ -70,7 +70,7 @@ namespace memstream {
                 VMM_READ_FLAGS);
     }
 
-    bool Process::ReadMany(std::vector<std::tuple<uint64_t, uint8_t*, uint32_t>> &readOps) {
+    bool Process::ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps) {
         assert(this->pFPGA && "null fpga");
         assert(this->getPid() && "null pid");
 
@@ -79,7 +79,7 @@ namespace memstream {
                 this->pFPGA->getVmm(),
                 this->getPid(),
                 VMM_READ_FLAGS);
-        if(!hScatter) return false;
+        if (!hScatter) return false;
 
         // push all reads into the scatter
         for (auto &read: readOps) {
@@ -88,17 +88,16 @@ namespace memstream {
             uint32_t len = std::get<2>(read);
 
             // skip bad reads rather than fail out....
-            if(!addr) continue;
-            if(!buf) continue;
-            if(!len) continue;
+            if (!addr) continue;
+            if (!buf) continue;
+            if (!len) continue;
 
-            if(!VMMDLL_Scatter_PrepareEx(
+            if (!VMMDLL_Scatter_PrepareEx(
                     hScatter,
                     addr,
                     len,
                     buf,
-                    nullptr))
-            {
+                    nullptr)) {
                 VMMDLL_Scatter_CloseHandle(hScatter);
                 return false;
             }
@@ -119,9 +118,9 @@ namespace memstream {
         assert(this->pFPGA && "null fpga");
         assert(this->getPid() && "null pid");
 
-        if(!addr) return false;
-        if(!buffer) return false;
-        if(!size) return false;
+        if (!addr) return false;
+        if (!buffer) return false;
+        if (!size) return false;
 
         return VMMDLL_MemWrite(
                 this->pFPGA->getVmm(),
@@ -210,19 +209,19 @@ namespace memstream {
         bool ok = VMMDLL_Map_GetEATU(
                 this->pFPGA->getVmm(),
                 this->getPid(),
-                (char*)name.c_str(),
+                (char *) name.c_str(),
                 &pEAT);
-        if(!ok) return results;
+        if (!ok) return results;
 
-        if(pEAT->dwVersion != VMMDLL_MAP_EAT_VERSION) {
+        if (pEAT->dwVersion != VMMDLL_MAP_EAT_VERSION) {
             VMMDLL_MemFree(pEAT);
             return results;
         }
 
         PVMMDLL_MAP_EATENTRY pEATEntry;
-        for(int i = 0; i < pEAT->cMap; i++) {
+        for (int i = 0; i < pEAT->cMap; i++) {
             pEATEntry = pEAT->pMap + i;
-            if(!pEATEntry) continue;
+            if (!pEATEntry) continue;
 
             results.push_back(*pEATEntry);
         }
@@ -241,19 +240,19 @@ namespace memstream {
         bool ok = VMMDLL_Map_GetIATU(
                 this->pFPGA->getVmm(),
                 this->getPid(),
-                (char*)name.c_str(),
+                (char *) name.c_str(),
                 &pIAT);
-        if(!ok) return results;
+        if (!ok) return results;
 
-        if(pIAT->dwVersion != VMMDLL_MAP_IAT_VERSION) {
+        if (pIAT->dwVersion != VMMDLL_MAP_IAT_VERSION) {
             VMMDLL_MemFree(pIAT);
             return results;
         }
 
         PVMMDLL_MAP_IATENTRY pIATEntry;
-        for(int i = 0; i < pIAT->cMap; i++) {
+        for (int i = 0; i < pIAT->cMap; i++) {
             pIATEntry = pIAT->pMap + i;
-            if(!pIATEntry) continue;
+            if (!pIATEntry) continue;
 
             results.push_back(*pIATEntry);
         }
@@ -273,9 +272,9 @@ namespace memstream {
                 this->pFPGA->getVmm(),
                 this->getPid(),
                 &pThreads);
-        if(!ok) return results;
+        if (!ok) return results;
 
-        if(pThreads->dwVersion != VMMDLL_MAP_THREAD_VERSION) {
+        if (pThreads->dwVersion != VMMDLL_MAP_THREAD_VERSION) {
             VMMDLL_MemFree(pThreads);
             return results;
         }
@@ -283,9 +282,9 @@ namespace memstream {
         //TODO: for this pattern lets do RESIZE and copy data into the results vector
         // this will turn X allocations/resizes into only 1 regardless of cMap size
         PVMMDLL_MAP_THREADENTRY pThreadEntry;
-        for(int i = 0; i < pThreads->cMap; i++) {
+        for (int i = 0; i < pThreads->cMap; i++) {
             pThreadEntry = pThreads->pMap + i;
-            if(!pThreadEntry) continue;
+            if (!pThreadEntry) continue;
 
             results.push_back(*pThreadEntry);
         }
@@ -296,13 +295,12 @@ namespace memstream {
 
     uint64_t Process::GetExport(const std::string &moduleName, const std::string &exportName) {
         auto exports = this->GetExports(moduleName);
-        for(auto &entry : exports) {
+        for (auto &entry: exports) {
             // case insensitive compare desired name with actual export name
             std::string funcName(entry.uszFunction);
-            if(std::equal(exportName.begin(), exportName.end(), funcName.begin(), [](char a, char b) {
+            if (std::equal(exportName.begin(), exportName.end(), funcName.begin(), [](char a, char b) {
                 return std::tolower(a) == std::tolower(b);
-            }))
-            {
+            })) {
                 return entry.vaFunction;
             }
         }
@@ -311,13 +309,12 @@ namespace memstream {
 
     uint64_t Process::GetImport(const std::string &moduleName, const std::string &importName) {
         auto imports = this->GetImports(moduleName);
-        for(auto &entry : imports) {
+        for (auto &entry: imports) {
             // case insensitive compare desired name with actual export name
             std::string funcName(entry.uszFunction);
-            if(std::equal(importName.begin(), importName.end(), funcName.begin(), [](char a, char b) {
+            if (std::equal(importName.begin(), importName.end(), funcName.begin(), [](char a, char b) {
                 return std::tolower(a) == std::tolower(b);
-            }))
-            {
+            })) {
                 return entry.vaFunction;
             }
         }
