@@ -141,6 +141,59 @@ namespace memstream {
                 size);
     }
 
+    void Process::StageWrite(uint64_t addr, uint8_t *buffer, uint32_t size) {
+        this->stagedWrites.emplace_back(addr, buffer, size);
+    }
+
+    bool Process::ExecuteStagedWrites() {
+        bool result = this->WriteMany(this->stagedWrites);
+        this->stagedWrites.clear();
+        return result;
+    }
+
+    bool Process::WriteMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &writeOps) {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
+        // init VMM scatter
+        VMMDLL_SCATTER_HANDLE hScatter = VMMDLL_Scatter_Initialize(
+                this->pFPGA->getVmm(),
+                this->getPid(),
+                VMM_READ_FLAGS);
+        if (!hScatter) return false;
+
+        // push all writes into the scatter
+        for (auto &write: writeOps) {
+            uint64_t addr = std::get<0>(write);
+            uint8_t *buf = std::get<1>(write);
+            uint32_t len = std::get<2>(write);
+
+            // skip bad writes rather than fail out....
+            if (!addr) continue;
+            if (!buf) continue;
+            if (!len) continue;
+
+            if (!VMMDLL_Scatter_PrepareWrite(
+                    hScatter,
+                    addr,
+                    buf,
+                    len)) {
+                VMMDLL_Scatter_CloseHandle(hScatter);
+                return false;
+            }
+        }
+
+        // execute write & clean up mem
+        if (!VMMDLL_Scatter_Execute(hScatter)) {
+            // write execution failed for some reason
+            VMMDLL_Scatter_CloseHandle(hScatter);
+            return false;
+        }
+
+        VMMDLL_Scatter_CloseHandle(hScatter);
+        return true;
+    }
+
     // ex: IDA pattern: 00 0A FF FF ?? ?? ?? ?? C3
 
     std::vector<std::tuple<uint8_t, bool>> Process::parsePattern(const std::string &pattern) {
@@ -382,5 +435,6 @@ namespace memstream {
         }
         return 0;
     }
+
 
 } // memstream

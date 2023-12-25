@@ -57,11 +57,26 @@ namespace memstream {
 
         virtual bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
 
-
-
         // writes
 
         virtual bool Write(uint64_t addr, uint8_t *buffer, uint32_t size);
+
+        template<typename T>
+        inline bool Write(uint64_t addr, T &value) {
+            return Write(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
+        }
+
+
+        virtual void StageWrite(uint64_t addr, uint8_t *buffer, uint32_t size);
+
+        template<typename T>
+        inline void StageWrite(uint64_t addr, T &value) {
+            StageWrite(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
+        }
+
+        virtual bool ExecuteStagedWrites();
+
+        virtual bool WriteMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
 
         // info stuff
 
@@ -106,6 +121,7 @@ namespace memstream {
 
 
         std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> stagedReads;
+        std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> stagedWrites;
 
         static std::vector<std::tuple<uint8_t, bool>> parsePattern(const std::string &pattern);
 
