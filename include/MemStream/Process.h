@@ -45,7 +45,19 @@ namespace memstream {
             return Read(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
         }
 
+
+        virtual void StageRead(uint64_t addr, uint8_t *buffer, uint32_t size);
+
+        template<typename T>
+        inline void StageRead(uint64_t addr, T &value) {
+            StageRead(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
+        }
+
+        virtual bool ExecuteStagedReads();
+
         virtual bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
+
+
 
         // writes
 
@@ -92,6 +104,8 @@ namespace memstream {
         VMMDLL_PROCESS_INFORMATION info;
         FPGA *pFPGA;
 
+
+        std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> stagedReads;
 
         static std::vector<std::tuple<uint8_t, bool>> parsePattern(const std::string &pattern);
 

@@ -17,9 +17,10 @@ namespace memstream {
     // which is auto-constructed
     // whenever any of the objects (process/driver/ect.)
     // are used.
-    FPGA* gDevice = nullptr;
-    FPGA* GetDefaultFPGA() {
-        if(!gDevice) {
+    FPGA *gDevice = nullptr;
+
+    FPGA *GetDefaultFPGA() {
+        if (!gDevice) {
             gDevice = new FPGA();
             assert(gDevice);
         }
@@ -27,15 +28,16 @@ namespace memstream {
     }
 
     FPGA::FPGA() {
-        static char* args[4] = {};
+        static char *args[4] = {};
         args[0] = "";
         args[1] = "-device";
         args[2] = "fpga";
 
         this->vmm = VMMDLL_Initialize(3, args);
-        if(!this->vmm)
+        if (!this->vmm)
             throw std::runtime_error("failed to initialize device");
     }
+
     FPGA::~FPGA() {
         assert(this->vmm && "null vmm");
 
@@ -62,14 +64,14 @@ namespace memstream {
 
         // fetch already existing leechcore handle.
         HANDLE hLC = LcCreate(&LcConfig);
-        if(!hLC) return false;
+        if (!hLC) return false;
 
         // enable auto-clear of status register [master abort].
         LcCommand(
                 hLC,
                 LC_CMD_FPGA_CFGREGPCIE_MARKWR | 0x002,
                 4,
-                (BYTE[4]) { 0x10, 0x00, 0x10, 0x00 },
+                (BYTE[4]) {0x10, 0x00, 0x10, 0x00},
                 nullptr,
                 nullptr);
 
@@ -85,7 +87,7 @@ namespace memstream {
         return this->vmm;
     }
 
-    bool FPGA::GetProcessInfo(uint32_t pid, VMMDLL_PROCESS_INFORMATION& info) {
+    bool FPGA::GetProcessInfo(uint32_t pid, VMMDLL_PROCESS_INFORMATION &info) {
         assert(this->vmm && "null vmm");
 
         SIZE_T cbInfo = sizeof(VMMDLL_PROCESS_INFORMATION);
@@ -101,29 +103,27 @@ namespace memstream {
 
         PDWORD pdwPIDs;
         SIZE_T cPIDs = 0;
-        if(!VMMDLL_PidList(this->vmm, nullptr, &cPIDs)) return results;
+        if (!VMMDLL_PidList(this->vmm, nullptr, &cPIDs)) return results;
 
         // we use alloca to store tmp data on stack for perf
-        pdwPIDs = (PDWORD)alloca(cPIDs * sizeof(DWORD));
+        pdwPIDs = (PDWORD) alloca(cPIDs * sizeof(DWORD));
         memset(pdwPIDs, 0, cPIDs * sizeof(DWORD));
         if (!VMMDLL_PidList(this->vmm, pdwPIDs, &cPIDs))
             return results;
 
-        for (SIZE_T i = 0; i < cPIDs; i++)
-        {
+        for (SIZE_T i = 0; i < cPIDs; i++) {
             DWORD dwPid = pdwPIDs[i];
 
             // pull info from process
             VMMDLL_PROCESS_INFORMATION info = {0};
-            if(!this->GetProcessInfo(dwPid, info))
+            if (!this->GetProcessInfo(dwPid, info))
                 continue;
 
             // case-insensitive name check
             std::string procName(info.szNameLong);
-            if(std::equal(name.begin(), name.end(), procName.begin(), [](char a, char b) {
+            if (std::equal(name.begin(), name.end(), procName.begin(), [](char a, char b) {
                 return std::tolower(a) == std::tolower(b);
-            }))
-            {
+            })) {
                 results.push_back(dwPid);
             }
         }

@@ -42,6 +42,7 @@ namespace memstream {
 
         virtual bool GetProcessInfo(uint32_t pid, VMMDLL_PROCESS_INFORMATION &info);
 
+
         VMM_HANDLE getVmm();
 
     private:

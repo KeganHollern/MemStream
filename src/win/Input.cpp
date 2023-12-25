@@ -61,6 +61,13 @@ namespace memstream::windows {
         uint8_t previous_key_state_bitmap[64] = {0};
         std::memcpy(previous_key_state_bitmap, this->state, sizeof(uint8_t[64]));
 
+        /* Example of staged reads
+        this->winlogon->StageRead(this->gafAsyncKeyStateAddr, this->state);
+        this->winlogon->StageRead(this->gptCursorAsync, this->cursorPos);
+        if(!this->winlogon->ExecuteStagedReads())
+            return false;
+        */
+
         // using scatter read to optimize
         std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> reads = {
                 {this->gafAsyncKeyStateAddr, (uint8_t *) &this->state,     sizeof(uint8_t[64])},
