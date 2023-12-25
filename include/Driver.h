@@ -9,7 +9,7 @@
 
 namespace memstream {
 
-    MEMSTREAM_API class Driver {
+    class MEMSTREAM_API Driver {
     public:
         explicit Driver(const std::string &name);
 

@@ -3,27 +3,26 @@ project(MemStream)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# srcs and headers
+include_directories(include)
+file(GLOB SOURCES "src/*.cpp")
+add_library(MemStream ${SOURCES})
+
+# add options to hide warnings for unsafe string type conversions
+target_compile_options(MemStream PRIVATE -Wno-writable-strings)
+
+# TODO: tweak this for linux/windows builds...
+add_definitions(-DLINUX -DMEMSTREAM_EXPORTS)
+
+# reference memprocfs headers and libraries
+include_directories(deps/memprocfs/include)
+find_library(LeechCore leechcore ./deps/memprocfs/lib)
+find_library(MemProcFS vmm ./deps/memprocfs/lib)
+target_link_libraries(MemStream LINK_PUBLIC ${LeechCore} ${MemProcFS})
+
 # Register Zydis dependency.
 # Disable build of tools and examples.
 option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)
-add_subdirectory("deps/zydis")
-
-add_library(MemStream FPGA.cpp Process.cpp Driver.cpp utils.cpp)
-# add options to hide warnings for unsafe string type conversions
-target_compile_options(MemStream PRIVATE -Wno-writable-strings)
-
-# TODO: remove this when actually building for windows
-add_definitions(-DLINUX -DMEMSTREAM_EXPORTS)
-
-include_directories(includes)
-
-# TODO: fix linker errors
-find_library(LeechCore leechcore lib)
-target_link_libraries(MemStream LINK_PUBLIC ${LeechCore})
-
-find_library(MemProcFS vmm lib)
-target_link_libraries(MemStream LINK_PUBLIC ${MemProcFS})
-
-
-target_link_libraries(MemStream PRIVATE "Zydis")
+add_subdirectory(deps/zydis)
+target_link_libraries(MemStream PRIVATE Zydis)

@@ -15,7 +15,7 @@ namespace memstream {
             VMMDLL_FLAG_NOPAGING |
             VMMDLL_FLAG_NOCACHEPUT;
 
-    MEMSTREAM_API class FPGA {
+    class MEMSTREAM_API FPGA {
     public:
         FPGA();
 

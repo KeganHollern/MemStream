@@ -9,7 +9,7 @@
 
 namespace memstream {
 
-    MEMSTREAM_API class Process {
+    class MEMSTREAM_API Process {
     public:
         explicit Process(uint32_t pid);
 
