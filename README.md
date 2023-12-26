@@ -1,6 +1,6 @@
 # MemStream
 
-MemStream is a wrapper for [MemProcFS](#) providing a simplified C++ interface for FPGA-based DMA application development.
+MemStream is a wrapper for [MemProcFS](https://github.com/ufrisk/MemProcFS) providing a simplified C++ interface for FPGA-based DMA application development.
 
 ## Usage
 
@@ -46,7 +46,7 @@ Those marked `?` I am unsure about including.
 - [ ] Complete Features
   - [ ] Dump Process
   - [x] Find Pattern
-  - [ ] Find Code Cave
+  - [x] Find Code Cave
   - [ ] Refactor "Driver" Logic
   - [ ] Shellcode Injection ?
   - [ ] Function Calling ?
@@ -58,6 +58,7 @@ Those marked `?` I am unsure about including.
 - [ ] Create Example Apps
   - [x] Basic example
   - [x] Input example
+  - [ ] [ReClass.NET](https://github.com/ReClassNET/ReClass.NET) Plugin
   - [ ] Performance test example
   - [ ] Real-world app example ?
 - [ ] rework exceptions ?
