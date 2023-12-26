@@ -19,7 +19,10 @@
 #endif
 #endif
 
+#include <cstdint>
+
 #include <vmmdll.h>
+
 #include <MemStream/FPGA.h>
 #include <MemStream/Process.h>
 

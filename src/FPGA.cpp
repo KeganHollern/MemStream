@@ -5,8 +5,11 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <cstring>
 #include <algorithm>
 #include <cctype>
+#include <stdexcept>
+
 #include <vmmdll.h>
 
 #include "MemStream/FPGA.h"
@@ -67,11 +70,12 @@ namespace memstream {
         if (!hLC) return false;
 
         // enable auto-clear of status register [master abort].
+        BYTE dataIn[4] =  {0x10, 0x00, 0x10, 0x00};
         LcCommand(
                 hLC,
                 LC_CMD_FPGA_CFGREGPCIE_MARKWR | 0x002,
                 4,
-                (BYTE[4]) {0x10, 0x00, 0x10, 0x00},
+                dataIn,
                 nullptr,
                 nullptr);
 

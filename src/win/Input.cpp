@@ -1,6 +1,9 @@
 #include <cstdint>
 #include <string>
 #include <cassert>
+#include <stdexcept>
+#include <cstring>
+
 #include <vmmdll.h>
 
 #include "MemStream/FPGA.h"

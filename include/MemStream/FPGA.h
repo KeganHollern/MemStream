@@ -19,15 +19,19 @@
 #endif
 #endif
 
+#include <cstdint>
+#include <vector>
+#include <string>
+
 #include <vmmdll.h>
 
-namespace memstream {
+#define VMM_READ_FLAGS \
+            VMMDLL_FLAG_NO_PREDICTIVE_READ | \
+            VMMDLL_FLAG_NOCACHE | \
+            VMMDLL_FLAG_NOPAGING | \
+            VMMDLL_FLAG_NOCACHEPUT
 
-    uint64_t VMM_READ_FLAGS =
-            VMMDLL_FLAG_NO_PREDICTIVE_READ |
-            VMMDLL_FLAG_NOCACHE |
-            VMMDLL_FLAG_NOPAGING |
-            VMMDLL_FLAG_NOCACHEPUT;
+namespace memstream {
 
     class MEMSTREAM_API FPGA {
     public:

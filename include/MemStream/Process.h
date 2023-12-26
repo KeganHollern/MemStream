@@ -19,6 +19,11 @@
 #endif
 #endif
 
+#include <cstdint>
+#include <vector>
+#include <tuple>
+#include <string>
+
 #include <vmmdll.h>
 #include <MemStream/FPGA.h>
 

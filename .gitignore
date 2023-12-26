@@ -89,6 +89,7 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 
-deps/memprocfs/
-
 .DS_Store
+
+libZycore.a
+libZydis.a

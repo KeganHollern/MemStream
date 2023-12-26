@@ -5,6 +5,11 @@
 #include <cassert>
 #include <sstream>
 #include <string>
+#include <cstring>
+#include <tuple>
+#include <vector>
+#include <stdexcept>
+
 #include <vmmdll.h>
 
 #include "MemStream/FPGA.h"
