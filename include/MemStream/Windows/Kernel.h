@@ -20,6 +20,8 @@
 #endif
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include <vmmdll.h>
 
@@ -38,8 +40,11 @@ namespace memstream::windows {
 
         virtual ~Kernel();
 
+        std::vector<std::string> GetLoadedDrivers();
+        std::vector<VMMDLL_MAP_SERVICEENTRY> GetServices();
     private:
         FPGA *pFPGA;
+        Process* system;
     };
 
 }

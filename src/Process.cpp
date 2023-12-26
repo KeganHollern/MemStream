@@ -499,6 +499,8 @@ namespace memstream {
     }
 
     uint64_t Process::GetExport(const std::string &moduleName, const std::string &exportName) {
+        // TODO: VMMDLL_ProcessGetProcAddressU ? faster?
+
         auto exports = this->GetExports(moduleName);
         for (auto &entry: exports) {
             // case insensitive compare desired name with actual export name
