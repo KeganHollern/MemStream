@@ -315,8 +315,82 @@ namespace memstream {
         return results;
     }
 
-    uint64_t Process::FindCave(uint64_t start, uint64_t stop) {
-        assert(false && "not implemented");
+    uint64_t Process::Cave(const std::string& moduleName, uint32_t size) {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
+        // CANNOT find caves larger than an entire page!
+        if(size >= 0x1000) return 0;
+
+        DWORD dwSectionCount = 0;
+        bool ok = VMMDLL_ProcessGetSectionsU(
+                this->pFPGA->getVmm(),
+                this->getPid(),
+                (char*)moduleName.c_str(),
+                nullptr,
+                0,
+                &dwSectionCount);
+        if(!ok) return 0;
+
+        // no sections for module?
+        if(dwSectionCount == 0) return 0;
+
+        // will this blow the stack? (probably not..)
+        IMAGE_SECTION_HEADER sections[dwSectionCount];
+
+        ok = VMMDLL_ProcessGetSectionsU(
+                this->pFPGA->getVmm(),
+                this->getPid(),
+                (char*)moduleName.c_str(),
+                sections,
+                dwSectionCount,
+                &dwSectionCount);
+        if(!ok) return 0;
+
+        const uint32_t pad = 0x10; // cave padding
+        uint8_t cave_buffer[size];
+
+        for(IMAGE_SECTION_HEADER& section : sections) {
+            // only sections with enough free space at the tail of the page
+            // (pad our actual fnc size by PAD on each side)
+            uint32_t free_bytes = 0x1000 - (section.Misc.VirtualSize & 0xfff);
+            if(free_bytes < (size+(pad*2)))
+                continue;
+
+            // RWX sections only (wouldn't RX work too?)
+            if(!(section.Characteristics & (IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_WRITE | IMAGE_SCN_MEM_READ)))
+                continue;
+
+            uint64_t section_start = this->GetModuleBase(moduleName) + section.VirtualAddress;
+            uint64_t section_end = section_start + section.Misc.VirtualSize;
+            uint64_t cave_addr = section_end + pad;
+
+            // TODO: read entire remainder of cave page...
+            //      uint64_t read_size = cave_addr - page::next(cave_addr) - pad;
+            //  and find anywhere with "size" repeating 0x0 values in that read
+            //  return address of start of that repeating 0x0 chain
+
+            // read cave
+            std::memset(cave_buffer, 0, size);
+            if(!this->Read(cave_addr, cave_buffer, size))
+                continue;
+
+            // check if read data contains any non-zero byte
+            bool cave_ok = true;
+            for(uint32_t i = 0; i < size; i++) {
+                if(cave_buffer[i] != 0x0)
+                {
+                    cave_ok = false;
+                    break;
+                }
+            }
+
+            // return cave address if buffer contained all 0s
+            if(cave_ok) return cave_addr;
+        }
+
+        // no valid cave in sections
+        return 0;
     }
 
     std::vector<VMMDLL_MAP_EATENTRY> Process::GetExports(const std::string &name) {

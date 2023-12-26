@@ -27,7 +27,7 @@ namespace memstream::windows {
     Input::Input() : Input(GetDefaultFPGA()) {}
 
     Input::Input(FPGA *pFPGA) {
-        if(!pFPGA)
+        if (!pFPGA)
             throw std::invalid_argument("null fpga");
 
         DWORD pid = 0;
@@ -35,6 +35,8 @@ namespace memstream::windows {
             throw std::runtime_error("failed to find winlogon");
 
         uint32_t version = getWindowsVersion(pFPGA);
+        if(version == 0)
+            throw std::runtime_error("failed to detect windows version");
 
         // find kernel locations of our data
         if (version > 22000) {
@@ -110,16 +112,18 @@ namespace memstream::windows {
         std::string version;
         Registry reg(pFPGA);
         bool ok = reg.Query(
-                "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\CurrentBuild",
+                R"(HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\CurrentBuild)",
                 RegistryType::sz,
                 version);
-        if(!ok) return 0;
+        if (!ok) return 0;
 
         return std::stoi(version);
     }
 
     uint64_t getAsyncCursorWin10(FPGA *pFPGA) {
-        return 0;
+        if (!pFPGA) return 0;
+
+        assert(false && "todo impl");
     }
 
     uint64_t getAsyncKeystateWin10(FPGA *pFPGA) {
@@ -166,6 +170,8 @@ namespace memstream::windows {
 
     //TODO: is this needed?
     uint64_t getAsyncCursorWin11(FPGA *pFPGA) {
-        return 0;
+        if (!pFPGA) return 0;
+
+        assert(false && "todo impl");
     }
 }

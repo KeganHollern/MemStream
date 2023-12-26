@@ -19,6 +19,12 @@
 #endif
 #endif
 
+#ifndef IMAGE_SCN_MEM_EXECUTE
+#define IMAGE_SCN_MEM_EXECUTE   0x20000000
+#define IMAGE_SCN_MEM_READ      0x40000000
+#define IMAGE_SCN_MEM_WRITE     0x80000000
+#endif
+
 #include <cstdint>
 #include <vector>
 #include <tuple>
@@ -112,9 +118,7 @@ namespace memstream {
                 uint64_t stop,
                 const std::string &pattern);
 
-        virtual uint64_t FindCave(
-                uint64_t start,
-                uint64_t stop);
+        virtual uint64_t Cave(const std::string& moduleName, uint32_t size);
 
         // Dump(disk_path)
         // Execute(fnc, args...) rax
