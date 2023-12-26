@@ -23,13 +23,13 @@ void example() {
 
 ## Building
 
-1. create a `memprocfs` folder in [deps](./deps)
-2. create a `lib` folder inside `memprocfs
-3. place MemProcFS libraries (vmm & leechcore) in there.
-4. create an `include` folder inside `memprocfs`
-5. place MemProcFS headers (vmm.h & leechcore.h) in there.
+Building for Linux is done via a docker toolchain. Run:
 
-Use CMake :)
+```shell
+make linux
+```
+
+> TODO: windows x64 builds via windows docker toolchain...
 
 ## TODO
 
@@ -37,11 +37,11 @@ Those marked `?` I am unsure about including.
 
 - [ ] Build compatibility for all MemProcFS targets
   - [ ] Windows AMD64
-  - [ ] Linux AMD64
-  - [ ] Linux ARM64
-- [ ] Refactor CMake projects
+  - [x] Linux AMD64
+  - [x] Linux ARM64
+- [x] Refactor CMake projects
 - [ ] MemProcFS submodule dependency / autosymbol stuff
-- [ ] Docker toolchains for build targets
+- [x] Docker toolchains for build targets
 - [ ] Github Actions for automated builds
 - [ ] Complete Features
   - [ ] Dump Process
