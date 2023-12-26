@@ -10,6 +10,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build/${CMAKE_SYSTEM_PROC
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build/${CMAKE_SYSTEM_PROCESSOR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build/${CMAKE_SYSTEM_PROCESSOR})
 
+message("Output directory: ${CMAKE_SOURCE_DIR}/build/${CMAKE_SYSTEM_PROCESSOR}")
+
 # global compiler options
 add_compile_options(-Wno-writable-strings -Wno-write-strings)
 
