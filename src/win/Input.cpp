@@ -8,7 +8,9 @@
 
 #include "MemStream/FPGA.h"
 #include "MemStream/Process.h"
+#include "MemStream/Windows/Registry.h"
 #include "MemStream/Windows/Input.h"
+
 
 namespace memstream::windows {
     // forward declares of helpers...
@@ -104,8 +106,16 @@ namespace memstream::windows {
     uint32_t getWindowsVersion(FPGA *pFPGA) {
         if (!pFPGA) return 0;
 
-        assert(false &&
-               "todo impl https://github.com/Metick/DMALibrary/blob/Master/DMALibrary/Memory/InputManager.cpp#L13C16-L13C16");
+        // rip target version from registry
+        std::string version;
+        Registry reg(pFPGA);
+        bool ok = reg.Query(
+                "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\CurrentBuild",
+                RegistryType::sz,
+                version);
+        if(!ok) return 0;
+
+        return std::stoi(version);
     }
 
     uint64_t getAsyncCursorWin10(FPGA *pFPGA) {
