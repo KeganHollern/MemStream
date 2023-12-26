@@ -57,7 +57,7 @@ Those marked `?` I am unsure about including.
   - [ ] Mono Dissection Utils ?
 - [ ] Create Example Apps
   - [x] Basic example
-  - [ ] Driver example (keyboard? mouse?)
+  - [x] Input example
   - [ ] Performance test example
   - [ ] Real-world app example ?
 - [ ] rework exceptions ?
