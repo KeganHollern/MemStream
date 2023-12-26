@@ -45,7 +45,7 @@ Those marked `?` I am unsure about including.
 - [ ] Github Actions for automated builds
 - [ ] Complete Features
   - [ ] Dump Process
-  - [ ] Find Pattern
+  - [x] Find Pattern
   - [ ] Find Code Cave
   - [ ] Refactor "Driver" Logic
   - [ ] Shellcode Injection ?

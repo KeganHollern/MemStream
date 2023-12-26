@@ -14,4 +14,7 @@ option(ZYDIS_BUILD_EXAMPLES "" OFF)
 
 add_subdirectory(deps/zydis)
 add_subdirectory(src)
+
+# examples
 add_subdirectory(example/basic)
+add_subdirectory(example/input)
