@@ -113,14 +113,16 @@ namespace memstream {
 
         // utils for cheating / exploiting
 
-        virtual uint64_t FindPattern(
-                uint64_t start,
-                uint64_t stop,
-                const std::string &pattern);
+        virtual uint64_t FindPattern(uint64_t start, uint64_t stop, const std::string &pattern);
 
-        virtual uint64_t Cave(const std::string& moduleName, uint32_t size);
+        // The two below are very windows-specific
+        // TODO: move them into a windows specific process child class ?
+        // EXECUTE() would also go there....
 
-        // Dump(disk_path)
+        virtual uint64_t Cave(const std::string &moduleName, uint32_t size);
+
+        virtual bool Dump(const std::string &path);
+
         // Execute(fnc, args...) rax
         // Hook ?
 

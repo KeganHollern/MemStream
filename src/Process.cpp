@@ -8,6 +8,7 @@
 #include <cstring>
 #include <tuple>
 #include <vector>
+#include <fstream>
 #include <stdexcept>
 
 #include <vmmdll.h>
@@ -315,12 +316,23 @@ namespace memstream {
         return results;
     }
 
+    bool Process::Dump(const std::string& path) {
+        assert(this->pFPGA && "null fpga");
+        assert(this->getPid() && "null pid");
+
+        assert(false && "todo impl");
+    }
+
+    // TODO: move some of these windows specific fncs into a WinProcess child class?
+
     uint64_t Process::Cave(const std::string& moduleName, uint32_t size) {
         assert(this->pFPGA && "null fpga");
         assert(this->getPid() && "null pid");
 
+        const uint32_t pad = 0x10; // cave padding
+
         // CANNOT find caves larger than an entire page!
-        if(size >= 0x1000) return 0;
+        if(size+(pad*2) >= 0x1000) return 0;
 
         DWORD dwSectionCount = 0;
         bool ok = VMMDLL_ProcessGetSectionsU(
@@ -347,7 +359,6 @@ namespace memstream {
                 &dwSectionCount);
         if(!ok) return 0;
 
-        const uint32_t pad = 0x10; // cave padding
         uint8_t cave_buffer[size];
 
         for(IMAGE_SECTION_HEADER& section : sections) {
