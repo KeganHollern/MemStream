@@ -22,7 +22,7 @@ COPY . .
 
 # generate via ninja
 RUN cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja -S /src/MemStream -B /src/MemStream/cmake-build-docker
-RUN cmake --build /src/MemStream/cmake-build-docker --target MemStream -j 6
+RUN cmake --build /src/MemStream/cmake-build-docker --target memstream -j 6
 
 FROM --platform=x86_64 ubuntu:latest AS amd64
 
@@ -48,7 +48,7 @@ COPY . .
 
 # generate via ninja
 RUN cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja -S /src/MemStream -B /src/MemStream/cmake-build-docker
-RUN cmake --build /src/MemStream/cmake-build-docker --target MemStream -j 6
+RUN cmake --build /src/MemStream/cmake-build-docker --target memstream -j 6
 
 FROM alpine:latest AS output
 WORKDIR /src/MemStream/build

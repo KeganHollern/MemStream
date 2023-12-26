@@ -1,4 +1,4 @@
-BUILD_ARGS ?= ""
+BUILD_ARGS ?=
 
 .PHONY: linux
 linux:

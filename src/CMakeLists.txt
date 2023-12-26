@@ -1,21 +1,29 @@
 file(GLOB ROOT "./*.cpp")
 file(GLOB WIN "./win/*.cpp")
-add_library(MemStream SHARED ${ROOT} ${WIN})
+add_library(memstream SHARED ${ROOT} ${WIN})
 
-set_target_properties(MemStream PROPERTIES PREFIX "")
+set_target_properties(memstream PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY ${BUILD_OUTPUTS}
+        LIBRARY_OUTPUT_DIRECTORY ${BUILD_OUTPUTS}
+        RUNTIME_OUTPUT_DIRECTORY ${BUILD_OUTPUTS})
 
-target_include_directories(MemStream PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(memstream PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
 # MemProcFS Headers
-target_include_directories(MemStream PUBLIC ${CMAKE_SOURCE_DIR}/deps/memprocfs/include)
+target_include_directories(memstream PUBLIC ${CMAKE_SOURCE_DIR}/deps/memprocfs/include)
 
 # MemProcFS Libraries
-find_library(LeechCore leechcore ${CMAKE_SOURCE_DIR}/deps/memprocfs/lib/${CMAKE_SYSTEM_PROCESSOR} REQUIRED)
-find_library(MemProcFS vmm ${CMAKE_SOURCE_DIR}/deps/memprocfs/lib/${CMAKE_SYSTEM_PROCESSOR} REQUIRED)
+set_target_properties(memstream PROPERTIES PREFIX "")
+
+add_library(LeechCore SHARED IMPORTED)
+set_target_properties(LeechCore PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/deps/memprocfs/lib/${CMAKE_SYSTEM_PROCESSOR}/leechcore.so)
+
+add_library(MemProcFS SHARED IMPORTED)
+set_target_properties(MemProcFS PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/deps/memprocfs/lib/${CMAKE_SYSTEM_PROCESSOR}/vmm.so)
 
 Message("Linking to Leechcore: ${CMAKE_SOURCE_DIR}/deps/memprocfs/lib/${CMAKE_SYSTEM_PROCESSOR}/leechcore.so")
 Message("Linking to MemProcFS: ${CMAKE_SOURCE_DIR}/deps/memprocfs/lib/${CMAKE_SYSTEM_PROCESSOR}/vmm.so")
 
 # Link to Deps
-target_link_libraries(MemStream Zydis)
-target_link_libraries(MemStream ${LeechCore} ${MemProcFS})
+target_link_libraries(memstream Zydis LeechCore MemProcFS)
+target_link_options(memstream PRIVATE "-v")
