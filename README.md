@@ -45,8 +45,10 @@ Those marked `?` I am unsure about including.
 - [ ] Github Actions for automated builds
 - [ ] Complete Features
   - [ ] Dump Process
+  - [ ] Caching features (EAT/IAT/ect. - things that do not change)
   - [x] Find Pattern
   - [x] Find Code Cave
+  - [ ] Improve code cave search
   - [ ] Refactor "Driver" Logic
   - [ ] Shellcode Injection ?
   - [ ] Function Calling ?
