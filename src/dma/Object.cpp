@@ -62,6 +62,7 @@ namespace memstream::dma {
         if (itr != this->offsets.end()) {
             return std::get<0>(itr->second);
         }
+        
         return nullptr;
     }
 
