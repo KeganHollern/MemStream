@@ -6,9 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # configure output directories
 # Set output directories for all build types (Release, Debug, etc.)
-set(BUILD_OUTPUTS ${CMAKE_SOURCE_DIR}/build/${CMAKE_SYSTEM_PROCESSOR})
+set(BUILD_OUTPUTS ${CMAKE_CURRENT_SOURCE_DIR}/build/${CMAKE_SYSTEM_PROCESSOR})
 
-message("Output directory: ${CMAKE_SOURCE_DIR}/build/${CMAKE_SYSTEM_PROCESSOR}")
+message("Output directory: ${CMAKE_CURRENT_SOURCE_DIR}/build/${CMAKE_SYSTEM_PROCESSOR}")
 
 # global compiler options
 add_compile_options(-Wno-writable-strings -Wno-write-strings)
