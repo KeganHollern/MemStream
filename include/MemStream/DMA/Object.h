@@ -23,6 +23,7 @@
 #include <string>
 #include <cstdint>
 #include <tuple>
+#include <cassert>
 
 #include <MemStream/FPGA.h>
 #include <MemStream/Process.h>
@@ -62,7 +63,7 @@ namespace memstream::dma {
                 assert(this->Size(off) == sizeof(value) && "unexpect object size");
 
                 // unsafe cast our bytes to T
-                value = reinterpret_cast<T>(buff);
+                std::memcpy(&value, buff, sizeof(T));
                 return true;
             }
 
