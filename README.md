@@ -48,7 +48,7 @@ Those marked `?` I am unsure about including.
   - [ ] Caching features (EAT/IAT/ect. - things that do not change)
   - [x] Find Pattern
   - [x] Find Code Cave
-  - [ ] Improve code cave search
+  - [x] Improve code cave search
   - [ ] Refactor "Driver" Logic
   - [ ] Shellcode Injection ?
   - [ ] Function Calling ?
