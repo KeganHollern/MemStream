@@ -13,6 +13,7 @@
 
 #include <vmmdll.h>
 
+#include "MemStream/Utils.h"
 #include "MemStream/FPGA.h"
 #include "MemStream/Process.h"
 
@@ -226,7 +227,8 @@ namespace memstream {
 
         uint32_t len = stop - start;
 
-        auto buffer = new uint8_t[len];
+        // will this blow the stack?
+        uint8_t buffer[len];
         if (!this->Read(start, buffer, len))
             return 0;
 
@@ -246,12 +248,10 @@ namespace memstream {
                 }
             }
             if (found) {
-                delete[] buffer;
                 return (start + i);
             }
         }
 
-        delete[] buffer;
         return 0;
     }
 
@@ -332,6 +332,9 @@ namespace memstream {
         const uint32_t pad = 0x10; // cave padding
 
         // CANNOT find caves larger than an entire page!
+        // TODO: define page size (0x1000) in some header
+        //  and with this define PAGE_SIZE-0x1 alongside it for bitwise calcs
+        //  utils ?
         if(size+(pad*2) >= 0x1000) return 0;
 
         DWORD dwSectionCount = 0;
@@ -359,7 +362,10 @@ namespace memstream {
                 &dwSectionCount);
         if(!ok) return 0;
 
-        uint8_t cave_buffer[size];
+        // max possible cave is 0xfff in size
+        // well its actually smaller bcz of our pad
+        // but if we set pad to 0 then this actually is...
+        uint8_t cave_buffer[0xfff];
 
         for(IMAGE_SECTION_HEADER& section : sections) {
             // only sections with enough free space at the tail of the page
@@ -381,24 +387,40 @@ namespace memstream {
             //  and find anywhere with "size" repeating 0x0 values in that read
             //  return address of start of that repeating 0x0 chain
 
+            uint64_t read_stop = page::next(cave_addr) - pad;
+            uint64_t read_size = read_stop - cave_addr + 0x1; // the 1 here should be correct
+            assert(read_size <= sizeof(cave_buffer) && "bad read size calculated");
+            assert(read_size <= size && "read size smaller than required");
+
             // read cave
-            std::memset(cave_buffer, 0, size);
-            if(!this->Read(cave_addr, cave_buffer, size))
+            std::memset(cave_buffer, 0, sizeof(cave_buffer));
+            if(!this->Read(cave_addr, cave_buffer, read_size))
                 continue;
 
-            // check if read data contains any non-zero byte
-            bool cave_ok = true;
-            for(uint32_t i = 0; i < size; i++) {
-                if(cave_buffer[i] != 0x0)
-                {
-                    cave_ok = false;
-                    break;
-                }
-            }
+            // scan the entire cave for a large enough pattern of 0s
+            for(uint32_t i = 0; i < read_size-size;) {
+                bool found = true;
 
-            // return cave address if buffer contained all 0s
-            if(cave_ok) return cave_addr;
-        }
+                for(uint32_t j = 0; j < size;j++) {
+                    auto& byte = cave_buffer[i+j];
+                    if(byte != 0x0) {
+                        found = false;
+                        // non-zero
+                        // next itr start from next byte
+                        i += j+1;
+                        break;
+                    }
+                }
+
+                // if we have a large enough cave lets return it
+                if(found) {
+                    // need to shift start of cave to the offset we found a valid cave @
+                    // often this will be [0]
+                    cave_addr += i;
+                    return cave_addr;
+                }
+            } // foreach BYTE IN CAVE BUFFER
+        } // foreach SECTION
 
         // no valid cave in sections
         return 0;
@@ -499,8 +521,6 @@ namespace memstream {
     }
 
     uint64_t Process::GetExport(const std::string &moduleName, const std::string &exportName) {
-        // TODO: VMMDLL_ProcessGetProcAddressU ? faster?
-
         auto exports = this->GetExports(moduleName);
         for (auto &entry: exports) {
             // case insensitive compare desired name with actual export name
