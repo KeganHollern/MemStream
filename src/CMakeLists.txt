@@ -1,7 +1,7 @@
 file(GLOB ROOT "./*.cpp")
 file(GLOB WIN "./win/*.cpp")
-file(GLOB WIN "./dma/*.cpp")
-add_library(memstream SHARED ${ROOT} ${WIN})
+file(GLOB DMA "./dma/*.cpp")
+add_library(memstream SHARED ${ROOT} ${WIN} ${DMA})
 
 set_target_properties(memstream PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY ${BUILD_OUTPUTS}
