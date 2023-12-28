@@ -125,9 +125,9 @@ namespace memstream {
 
         // Execute(fnc, args...) rax
         // Hook ?
-        bool isIs64Bit() const;
+        bool isIs64Bit();
 
-        uint32_t getPid() const;
+        uint32_t getPid();
 
     protected:
         VMMDLL_PROCESS_INFORMATION info;

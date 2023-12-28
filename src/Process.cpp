@@ -47,13 +47,13 @@ namespace memstream {
 
     Process::~Process() = default;
 
-    bool Process::isIs64Bit() const {
+    bool Process::isIs64Bit() {
         assert(this->pFPGA && "null fpga");
 
         return this->info.tpMemoryModel == VMMDLL_MEMORYMODEL_X64;
     }
 
-    uint32_t Process::getPid() const {
+    uint32_t Process::getPid() {
         assert(this->pFPGA && "null fpga");
 
         return this->info.dwPID;
