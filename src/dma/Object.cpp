@@ -50,10 +50,12 @@ namespace memstream::dma {
 
     // push an offset to this object structure
     void Object::Push(uint32_t off, uint32_t size) {
-        // i _really_ hate that i alloc to heap like this.
-        // i should make a PushMany() or something which can do all this
-        // in a single allocation....
-        this->offsets[off] = std::tuple<uint8_t *, uint32_t>(new uint8_t[size], size);
+        this->PushBuffer(off, new uint8_t[size], size);
+    }
+
+    // push an offset to this object structure & store its read data at the buffer
+    void Object::PushBuffer(uint32_t off, uint8_t *buffer, uint32_t size) {
+        this->offsets[off] = std::tuple<uint8_t *, uint32_t>(buffer, size);
     }
 
     // get the read value from the object structure

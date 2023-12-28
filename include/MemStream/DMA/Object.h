@@ -21,9 +21,11 @@
 #endif
 
 #include <string>
+#include <cstring>
 #include <cstdint>
 #include <tuple>
 #include <cassert>
+#include <unordered_map>
 
 #include <MemStream/FPGA.h>
 #include <MemStream/Process.h>
@@ -44,6 +46,7 @@ namespace memstream::dma {
             // is this object NULL (default)
             virtual bool IsNull();
 
+            void PushBuffer(uint32_t off, uint8_t* buffer, uint32_t size);
             // push offsets into the object to be read during READ() ops ?
             void Push(uint32_t off, uint32_t size);
             uint32_t Size(uint32_t off);

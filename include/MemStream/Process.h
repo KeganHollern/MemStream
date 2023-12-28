@@ -49,7 +49,7 @@ namespace memstream {
 
         // reads
 
-        virtual bool Read(uint64_t addr, uint8_t *buffer, uint32_t size);
+        bool Read(uint64_t addr, uint8_t *buffer, uint32_t size);
 
         template<typename T>
         inline bool Read(uint64_t addr, T &value) {
@@ -57,20 +57,20 @@ namespace memstream {
         }
 
 
-        virtual void StageRead(uint64_t addr, uint8_t *buffer, uint32_t size);
+        void StageRead(uint64_t addr, uint8_t *buffer, uint32_t size);
 
         template<typename T>
         inline void StageRead(uint64_t addr, T &value) {
             StageRead(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
         }
 
-        virtual bool ExecuteStagedReads();
+         bool ExecuteStagedReads();
 
-        virtual bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
+         bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
 
         // writes
 
-        virtual bool Write(uint64_t addr, uint8_t *buffer, uint32_t size);
+         bool Write(uint64_t addr, uint8_t *buffer, uint32_t size);
 
         template<typename T>
         inline bool Write(uint64_t addr, T &value) {
@@ -78,55 +78,58 @@ namespace memstream {
         }
 
 
-        virtual void StageWrite(uint64_t addr, uint8_t *buffer, uint32_t size);
+         void StageWrite(uint64_t addr, uint8_t *buffer, uint32_t size);
 
         template<typename T>
         inline void StageWrite(uint64_t addr, T &value) {
             StageWrite(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
         }
 
-        virtual bool ExecuteStagedWrites();
+         bool ExecuteStagedWrites();
 
-        virtual bool WriteMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
+         bool WriteMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
 
         // info stuff
 
-        virtual uint64_t GetModuleBase(const std::string &name);
+         uint64_t GetModuleBase(const std::string &name);
 
-        virtual bool GetModuleInfo(const std::string &name, VMMDLL_MAP_MODULEENTRY &info);
+         bool GetModuleInfo(const std::string &name, VMMDLL_MAP_MODULEENTRY &info);
 
         // map getters
 
-        virtual std::vector<VMMDLL_MAP_EATENTRY> GetExports(const std::string &name);
+         std::vector<VMMDLL_MAP_EATENTRY> GetExports(const std::string &name);
 
-        virtual std::vector<VMMDLL_MAP_IATENTRY> GetImports(const std::string &name);
+         std::vector<VMMDLL_MAP_IATENTRY> GetImports(const std::string &name);
 
-        virtual std::vector<VMMDLL_MAP_MODULEENTRY> GetModules();
+         std::vector<VMMDLL_MAP_MODULEENTRY> GetModules();
 
-        virtual std::vector<VMMDLL_MAP_THREADENTRY> GetThreads();
+         std::vector<VMMDLL_MAP_THREADENTRY> GetThreads();
 
         // easier to access import/export lookups
 
-        virtual uint64_t GetExport(const std::string &moduleName, const std::string &exportName);
+         uint64_t GetExport(const std::string &moduleName, const std::string &exportName);
 
-        virtual uint64_t GetImport(const std::string &moduleName, const std::string &importName);
+         uint64_t GetImport(const std::string &moduleName, const std::string &importName);
 
         // utils for cheating / exploiting
 
-        virtual uint64_t FindPattern(uint64_t start, uint64_t stop, const std::string &pattern);
+         uint64_t FindPattern(uint64_t start, uint64_t stop, const std::string &pattern);
 
         // The two below are very windows-specific
         // TODO: move them into a windows specific process child class ?
         // EXECUTE() would also go there....
 
-        virtual uint64_t Cave(const std::string &moduleName, uint32_t size);
+         uint64_t Cave(const std::string &moduleName, uint32_t size);
 
-        virtual bool Dump(const std::string &path);
+         bool Dump(const std::string &path);
 
         // Execute(fnc, args...) rax
         // Hook ?
+        bool isIs64Bit() const;
 
-    private:
+        uint32_t getPid() const;
+
+    protected:
         VMMDLL_PROCESS_INFORMATION info;
         FPGA *pFPGA;
 
@@ -135,11 +138,6 @@ namespace memstream {
         std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> stagedWrites;
 
         static std::vector<std::tuple<uint8_t, bool>> parsePattern(const std::string &pattern);
-
-    public:
-        bool isIs64Bit() const;
-
-        uint32_t getPid() const;
     };
 
 } // memstream
