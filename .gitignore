@@ -93,3 +93,5 @@ _deps
 
 libZycore.a
 libZydis.a
+
+release-*
