@@ -72,7 +72,7 @@ namespace memstream::dma {
 
             uint64_t base;
         protected:
-            std::unordered_map<uint32_t, std::tuple<uint8_t*, uint32_t>> offsets;
+            std::unordered_map<uint32_t, std::tuple<uint8_t*, uint32_t>> offsets{};
             Process* proc;
         };
 

@@ -14,6 +14,7 @@ namespace memstream::dma {
 
         this->base = 0x0;
         this->proc = process;
+        this->offsets.clear();
     }
 
     bool Object::IsNull() {
@@ -39,12 +40,18 @@ namespace memstream::dma {
         for (auto &offset: this->offsets) {
             assert(std::get<0>(offset.second) && "null buffer in offsets");
 
-            if (!std::get<0>(offset.second)) continue;
+            auto addr = std::get<0>(offset);
+            auto& value = std::get<1>(offset);
+            auto buffer = std::get<0>(value);
+            auto size = std::get<1>(value);
+
+            if (!buffer) continue;
+            if (size == 0) continue;
 
             this->proc->StageRead(
-                    this->base + offset.first, // BASE+OFF]
-                    std::get<0>(offset.second), // BUFFER of N BYTES
-                    std::get<1>(offset.second)); // N (length of buffer)
+                    this->base + addr, // BASE+OFF]
+                    buffer, // BUFFER of N BYTES
+                    size); // N (length of buffer)
         }
     }
 
