@@ -60,10 +60,10 @@ namespace memstream {
         if (qwVersionMajor < 4 || (qwVersionMajor < 5 && qwVersionMinor < 7))
             return false; // must be version 4.7 or newer!
 
-        LC_CONFIG LcConfig = {
-                .dwVersion = LC_CONFIG_VERSION,
-                .szDevice = "existing"
-        };
+        LC_CONFIG LcConfig = {};
+        LcConfig.dwVersion = LC_CONFIG_VERSION;
+        strcpy_s(LcConfig.szDevice, "existing");
+
 
         // fetch already existing leechcore handle.
         HANDLE hLC = LcCreate(&LcConfig);

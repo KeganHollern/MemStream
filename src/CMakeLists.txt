@@ -18,13 +18,9 @@ target_include_directories(memstream PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../deps/
 # MemProcFS Libraries
 set_target_properties(memstream PROPERTIES PREFIX "")
 
-# Libs
-find_library(LeechCore leechcore ${CMAKE_CURRENT_SOURCE_DIR}/../deps/memprocfs/lib/${CMAKE_HOST_SYSTEM_NAME}/${CMAKE_SYSTEM_PROCESSOR})
-find_library(MemProcFS vmm ${CMAKE_CURRENT_SOURCE_DIR}/../deps/memprocfs/lib/${CMAKE_HOST_SYSTEM_NAME}/${CMAKE_SYSTEM_PROCESSOR})
-
 Message("Linking to Leechcore: ${LeechCore}")
 Message("Linking to MemProcFS: ${MemProcFS}")
 
 # Link to Deps
-target_link_libraries(memstream PUBLIC Zydis LeechCore MemProcFS)
+target_link_libraries(memstream PUBLIC Zydis ${LeechCore} ${MemProcFS})
 target_link_options(memstream PRIVATE "-v")
