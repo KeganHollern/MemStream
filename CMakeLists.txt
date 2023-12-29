@@ -13,9 +13,6 @@ message("Output directory: ${CMAKE_CURRENT_SOURCE_DIR}/build/${CMAKE_SYSTEM_PROC
 # global compiler options
 add_compile_options(-Wno-writable-strings -Wno-write-strings)
 
-# TODO: if DARWIN ?
-add_definitions(-DLINUX)
-
 # options
 option(ZYDIS_BUILD_TOOLS "" OFF)
 option(ZYDIS_BUILD_EXAMPLES "" OFF)

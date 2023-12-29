@@ -36,7 +36,7 @@ namespace memstream {
             throw std::invalid_argument("invalid fpga provided");
 
         uint32_t foundPid = 0;
-        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) name.c_str(), &foundPid))
+        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) name.c_str(), (PDWORD)&foundPid))
             throw std::runtime_error("failed to find process with name");
 
         if (!pFPGA->GetProcessInfo(foundPid, this->info))
