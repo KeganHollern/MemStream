@@ -3,10 +3,12 @@
 #include <cassert>
 #include <stdexcept>
 #include <cstring>
+#include <iostream>
 
 #include <vmmdll.h>
 
 #include "MemStream/FPGA.h"
+#include "MemStream/Utils.h"
 #include "MemStream/Process.h"
 #include "MemStream/Windows/Registry.h"
 #include "MemStream/Windows/Input.h"
@@ -52,7 +54,7 @@ namespace memstream::windows {
             throw std::runtime_error("failed to find gafAsyncKeyState");
 
         if (this->gptCursorAsync <= 0x7FFFFFFFFFFF)
-            throw std::runtime_error("failed to find gafAsyncKeyState");
+            throw std::runtime_error("failed to find CURSOR");
 
         this->winlogon = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
     }
@@ -109,7 +111,7 @@ namespace memstream::windows {
         if (!pFPGA) return 0;
 
         // rip target version from registry
-        std::string version;
+        std::wstring version;
         Registry reg(pFPGA);
         bool ok = reg.Query(
                 R"(HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\CurrentBuild)",
@@ -138,32 +140,40 @@ namespace memstream::windows {
 
         // search for async keystate export addr
         auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
-        for (auto &pid: pids) {
-            try {
-                Process tmp(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
 
-                uint64_t base = tmp.GetModuleBase("win32ksgd.sys");
-                if (!base) continue;
 
-                // ADDR = base+0x3110]]]+0x3690
-                // TODO: figure out how this can be REd
-                //  currently lifted from Metick/DMALibrary
-                uint64_t addr = base + 0x3110;
-                uint64_t val = 0;
-                if (!tmp.Read(addr, val)) continue;
-                if (!tmp.Read(addr, val)) continue;
-                if (!tmp.Read(addr, val)) continue;
+        auto pid = pids[0]; // TODO: try to figure out wtf is going on
 
-                uint64_t result = val + 0x3690;
+        std::cout << "pid: " << std::dec << pid << std::endl;
 
-                // this csrss process had it :)
-                if (result > 0x7FFFFFFFFFFF)
-                    return result;
+        Process tmp(pFPGA, pid); // csrss is special and can access .sys modules without flag
 
-            } catch (std::exception &) {
-                continue;
-            }
-        }
+        uint64_t base = tmp.GetModuleBase("win32ksgd.sys");
+        std::cout << "base: " << std::hex << base << std::endl;
+        if (!base) return 0;
+
+        uint64_t addr = base + 0x3110;
+        std::cout << "gSessionGlobalSlots: " << std::hex << addr << std::endl;
+        uint64_t r1, r2, r3 = 0;
+
+        if (!tmp.Read(addr, (uint8_t*)&r1, sizeof(r1))) return 0;
+        std::cout << "gSessionGlobalSlots]: " << std::hex << r1 << std::endl;
+        if(!r1) return 0;
+
+        if (!tmp.Read(r1, (uint8_t*)&r2, sizeof(r2))) return 0;
+        std::cout << "gSessionGlobalSlots]]: " << std::hex << r2 << std::endl;
+        if(!r2) return 0;
+
+        if (!tmp.Read(r2, (uint8_t*)&r3, sizeof(r3))) return 0;
+        std::cout << "gSessionGlobalSlots]]]: " << std::hex << r3 << std::endl;
+        if(!r3) return 0;
+
+        uint64_t result = r3 + 0x3690;
+        std::cout << "gSessionGlobalSlots]]]+0x3690: " << std::hex << result << std::endl;
+
+        // this csrss process had it :)
+        if (result > 0x7FFFFFFFFFFF)
+            return result;
 
         return 0;
     }
@@ -173,5 +183,7 @@ namespace memstream::windows {
         if (!pFPGA) return 0;
 
         assert(false && "todo impl");
+
+        return 0;
     }
 }

@@ -19,7 +19,7 @@ namespace memstream::windows {
 
     Registry::~Registry() = default;
 
-    bool Registry::Query(const std::string &path, const RegistryType& type, std::string &value) {
+    bool Registry::Query(const std::string &path, const RegistryType& type, std::wstring &value) {
         assert(this->pFPGA && "null fpga");
 
         DWORD dwType = (DWORD)type;
@@ -35,10 +35,7 @@ namespace memstream::windows {
         if(!ok) return false;
 
         // copy buffer into value
-        //TODO: is `buffer` unicode ?
-        //  std::wstring wstr = std::wstring((wchar_t*)buffer);
-       //    value = std::string(wstr.begin(), wstr.end());
-        value = (const char*)buffer;
+        value = (const wchar_t*)buffer;
         return true;
     }
 }

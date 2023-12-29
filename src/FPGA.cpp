@@ -39,6 +39,11 @@ namespace memstream {
         this->vmm = VMMDLL_Initialize(3, args);
         if (!this->vmm)
             throw std::runtime_error("failed to initialize device");
+
+        if (!VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_FPGA_ID, &this->deviceID) ||
+            !VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_VERSION_MAJOR, &this->majorVer) ||
+            !VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_VERSION_MINOR, &this->minorVer))
+            throw std::runtime_error("failed to get device information");
     }
 
     FPGA::~FPGA() {
@@ -50,14 +55,7 @@ namespace memstream {
     bool FPGA::DisableMasterAbort() {
         assert(this->vmm && "null vmm");
 
-        ULONG64 qwID = 0, qwVersionMajor = 0, qwVersionMinor = 0;
-
-        if (!VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_FPGA_ID, &qwID) ||
-            !VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_VERSION_MAJOR, &qwVersionMajor) ||
-            !VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_VERSION_MINOR, &qwVersionMinor))
-            return false;
-
-        if (qwVersionMajor < 4 || (qwVersionMajor < 5 && qwVersionMinor < 7))
+        if (this->majorVer < 4 || (this->majorVer < 5 && this->minorVer < 7))
             return false; // must be version 4.7 or newer!
 
         LC_CONFIG LcConfig = {};
@@ -136,6 +134,19 @@ namespace memstream {
         }
 
         return results;
+    }
+
+    uint64_t FPGA::getDeviceID() {
+        assert(this->vmm && "null vmm");
+
+        return this->deviceID;
+    }
+
+    void FPGA::getVersion(uint64_t &major, uint64_t &minor) {
+        assert(this->vmm && "null vmm");
+
+        major = this->majorVer;
+        minor = this->minorVer;
     }
 
 } // memstream

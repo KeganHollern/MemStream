@@ -3,14 +3,43 @@
 #include <cstdint>
 #include <chrono>
 #include <thread>
+#include <iostream>
 
+#include <MemStream/FPGA.h>
 #include <MemStream/Process.h>
+#include <MemStream/Utils.h>
 #include <MemStream/Windows/Input.h>
+#include <MemStream/Windows/Registry.h>
 
+using namespace memstream;
 using namespace memstream::windows;
+
+uint32_t getWindowsVersion(FPGA *pFPGA) {
+    if (!pFPGA) return 0;
+
+    // rip target version from registry
+    std::wstring version;
+    Registry reg(pFPGA);
+    bool ok = reg.Query(
+            R"(HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\CurrentBuild)",
+            RegistryType::sz,
+            version);
+    if (!ok) return 0;
+
+    std::wcout << L"Win Ver: " << version << std::endl;
+
+    return std::stoi(version);
+}
 
 int main() {
     try {
+        FPGA* fpga = GetDefaultFPGA();
+        uint64_t maj, min, dev = 0;
+        fpga->getVersion(maj, min);
+        dev = fpga->getDeviceID();
+
+        std::cout << "FPGA: Device #" << dev << " v" << maj << "." << min << std::endl;
+
         Input in;
 
         while(true) {

@@ -72,7 +72,7 @@ namespace memstream::windows {
 
         virtual ~Registry();
 
-        bool Query(const std::string& path, const RegistryType& type, std::string& value);
+        bool Query(const std::string& path, const RegistryType& type, std::wstring& value);
 
     private:
         FPGA* pFPGA;

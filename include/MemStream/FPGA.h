@@ -48,9 +48,13 @@ namespace memstream {
 
 
         VMM_HANDLE getVmm();
-
+        uint64_t getDeviceID();
+        void getVersion(uint64_t& major, uint64_t& minor);
     protected:
         VMM_HANDLE vmm;
+        uint64_t deviceID = 0;
+        uint64_t majorVer = 0;
+        uint64_t minorVer = 0;
     };
 
     MEMSTREAM_API FPGA *GetDefaultFPGA();
