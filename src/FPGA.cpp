@@ -64,7 +64,7 @@ namespace memstream {
         LcConfig.dwVersion = LC_CONFIG_VERSION;
 #ifdef _WIN32
         strcpy_s(LcConfig.szDevice, "existing");
-#elifdef LINUX
+#else
         strcpy(LcConfig.szDevice, "existing");
 #endif
 
