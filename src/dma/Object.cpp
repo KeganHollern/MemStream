@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <cstdint>
 #include <cassert>
+#include <iostream>
 
 #include "MemStream/DMA/Object.h"
 
@@ -37,17 +38,25 @@ namespace memstream::dma {
         // can't read if null...
         if(this->IsNull()) return;
 
-        for (auto &offset: this->offsets) {
+        std::cout << "looping..." << std::endl;
+        for (const auto &offset: this->offsets) {
             assert(std::get<0>(offset.second) && "null buffer in offsets");
 
-            auto addr = std::get<0>(offset);
-            auto& value = std::get<1>(offset);
-            auto buffer = std::get<0>(value);
-            auto size = std::get<1>(value);
+            const uint32_t addr = offset.first;
+            const std::tuple<uint8_t*, uint32_t>& value = offset.second;
+
+            uint8_t* buffer = std::get<0>(value);
+            uint32_t size = std::get<1>(value);
+
+
+            std::cout << std::hex << addr << std::endl;
+            std::cout << std::hex << (uint64_t)buffer << std::endl;
+            std::cout << std::hex << size << std::endl;
 
             if (!buffer) continue;
             if (size == 0) continue;
 
+            std::cout << "staging" << std::endl;
             this->proc->StageRead(
                     this->base + addr, // BASE+OFF]
                     buffer, // BUFFER of N BYTES
@@ -62,7 +71,7 @@ namespace memstream::dma {
 
     // push an offset to this object structure & store its read data at the buffer
     void Object::PushBuffer(uint32_t off, uint8_t *buffer, uint32_t size) {
-        this->offsets[off] = std::tuple<uint8_t *, uint32_t>(buffer, size);
+        this->offsets[off] = std::make_tuple(buffer, size);
     }
 
     // get the read value from the object structure
