@@ -3,7 +3,6 @@
 #include <cassert>
 #include <stdexcept>
 #include <cstring>
-#include <iostream>
 
 #include <vmmdll.h>
 
@@ -125,14 +124,29 @@ namespace memstream::windows {
     uint64_t getAsyncCursorWin10(FPGA *pFPGA) {
         if (!pFPGA) return 0;
 
-        assert(false && "todo impl");
+        auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
+        for(auto& pid : pids) {
+            Process tmp(pFPGA, pid); // csrss is special and can access .sys modules without flag
+            auto result = tmp.GetExport("win32kbase.sys", "gptCursorAsync");
+            if(result > 0x7FFFFFFFFFFF)
+                return result;
+        }
+
+        return 0;
     }
 
     uint64_t getAsyncKeystateWin10(FPGA *pFPGA) {
         if (!pFPGA) return 0;
 
-        assert(false &&
-               "todo impl https://github.com/Metick/DMALibrary/blob/Master/DMALibrary/Memory/InputManager.cpp#L35");
+        auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
+        for(auto& pid : pids) {
+            Process tmp(pFPGA, pid); // csrss is special and can access .sys modules without flag
+            auto result = tmp.GetExport("win32kbase.sys", "gafAsyncKeyState");
+            if(result > 0x7FFFFFFFFFFF)
+                return result;
+        }
+
+        return 0;
     }
 
     uint64_t getAsyncKeystateWin11(FPGA *pFPGA) {
@@ -140,50 +154,37 @@ namespace memstream::windows {
 
         // search for async keystate export addr
         auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
+        for(auto& pid : pids) {
 
+            Process tmp(pFPGA, pid); // csrss is special and can access .sys modules without flag
 
-        auto pid = pids[0]; // TODO: try to figure out wtf is going on
+            uint64_t base = tmp.GetModuleBase("win32ksgd.sys");
+            if (!base) return 0;
 
-        std::cout << "pid: " << std::dec << pid << std::endl;
+            uint64_t addr = base + 0x3110;
+            uint64_t r1, r2, r3 = 0;
 
-        Process tmp(pFPGA, pid); // csrss is special and can access .sys modules without flag
+            if(!tmp.Read(addr, r1)) return 0;
+            if(!r1) return 0;
 
-        uint64_t base = tmp.GetModuleBase("win32ksgd.sys");
-        std::cout << "base: " << std::hex << base << std::endl;
-        if (!base) return 0;
+            if(!tmp.Read(r1, r2)) return 0;
+            if(!r2) return 0;
 
-        uint64_t addr = base + 0x3110;
-        std::cout << "gSessionGlobalSlots: " << std::hex << addr << std::endl;
-        uint64_t r1, r2, r3 = 0;
+            if(!tmp.Read(r2, r3)) return 0;
+            if(!r3) return 0;
 
-        if (!tmp.Read(addr, (uint8_t*)&r1, sizeof(r1))) return 0;
-        std::cout << "gSessionGlobalSlots]: " << std::hex << r1 << std::endl;
-        if(!r1) return 0;
+            uint64_t result = r3 + 0x3690;
 
-        if (!tmp.Read(r1, (uint8_t*)&r2, sizeof(r2))) return 0;
-        std::cout << "gSessionGlobalSlots]]: " << std::hex << r2 << std::endl;
-        if(!r2) return 0;
-
-        if (!tmp.Read(r2, (uint8_t*)&r3, sizeof(r3))) return 0;
-        std::cout << "gSessionGlobalSlots]]]: " << std::hex << r3 << std::endl;
-        if(!r3) return 0;
-
-        uint64_t result = r3 + 0x3690;
-        std::cout << "gSessionGlobalSlots]]]+0x3690: " << std::hex << result << std::endl;
-
-        // this csrss process had it :)
-        if (result > 0x7FFFFFFFFFFF)
-            return result;
+            // this csrss process had it :)
+            if (result > 0x7FFFFFFFFFFF)
+                return result;
+        }
 
         return 0;
     }
 
-    //TODO: is this needed?
     uint64_t getAsyncCursorWin11(FPGA *pFPGA) {
-        if (!pFPGA) return 0;
-
-        assert(false && "todo impl");
-
-        return 0;
+        // no change for Win11- can use same routine as Win10
+        return getAsyncCursorWin10(pFPGA);
     }
 }
