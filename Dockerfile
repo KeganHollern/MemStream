@@ -54,3 +54,5 @@ FROM alpine:latest AS output
 WORKDIR /src/MemStream/build
 COPY --from=arm64 /src/MemStream/build /src/MemStream/build
 COPY --from=amd64 /src/MemStream/build /src/MemStream/build
+
+ENTRYPOINT ["cp", "-r", "/src/MemStream/build", "/host"]

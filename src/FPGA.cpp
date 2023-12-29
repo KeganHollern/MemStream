@@ -62,8 +62,11 @@ namespace memstream {
 
         LC_CONFIG LcConfig = {};
         LcConfig.dwVersion = LC_CONFIG_VERSION;
+#ifdef _WIN32
         strcpy_s(LcConfig.szDevice, "existing");
-
+#elifdef LINUX
+        strcpy(LcConfig.szDevice, "existing");
+#endif
 
         // fetch already existing leechcore handle.
         HANDLE hLC = LcCreate(&LcConfig);

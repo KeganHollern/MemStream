@@ -22,7 +22,7 @@ int main() {
 
             // print cursor pos
             auto pos = in.GetCursorPos();
-            printf("MOUSE: (%l, %l)\n", pos.x, pos.y);
+            printf("MOUSE: (%ld, %ld)\n", pos.x, pos.y);
 
             // check if VK_SPACE is down (exit if true)
             if(in.IsKeyDown(0x20)) {
