@@ -36,27 +36,26 @@ namespace memstream::dma {
         assert(this->proc && "null proc");
 
         // can't read if null...
-        if(this->IsNull()) return;
+        if(this->IsNull()) {
+            std::cout << "W: staged null object" << std::endl;
+            return;
+        }
 
-        std::cout << "looping..." << std::endl;
+        if(this->offsets.empty()) {
+            std::cout << "W: staged empty object" << std::endl;
+            return;
+        }
+
         for (const auto &offset: this->offsets) {
-            assert(std::get<0>(offset.second) && "null buffer in offsets");
-
             const uint32_t addr = offset.first;
             const std::tuple<uint8_t*, uint32_t>& value = offset.second;
 
             uint8_t* buffer = std::get<0>(value);
             uint32_t size = std::get<1>(value);
 
-
-            std::cout << std::hex << addr << std::endl;
-            std::cout << std::hex << (uint64_t)buffer << std::endl;
-            std::cout << std::hex << size << std::endl;
-
             if (!buffer) continue;
             if (size == 0) continue;
 
-            std::cout << "staging" << std::endl;
             this->proc->StageRead(
                     this->base + addr, // BASE+OFF]
                     buffer, // BUFFER of N BYTES
