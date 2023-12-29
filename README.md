@@ -35,8 +35,8 @@ make linux
 
 Those marked `?` I am unsure about including.
 
-- [ ] Build compatibility for all MemProcFS targets
-  - [ ] Windows AMD64
+- [x] Build compatibility for all MemProcFS targets
+  - [x] Windows AMD64
   - [x] Linux AMD64
   - [x] Linux ARM64
 - [x] Refactor CMake projects

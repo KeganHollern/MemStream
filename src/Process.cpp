@@ -36,7 +36,7 @@ namespace memstream {
             throw std::invalid_argument("invalid fpga provided");
 
         uint32_t foundPid = 0;
-        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) name.c_str(), &foundPid))
+        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) name.c_str(), (PDWORD)&foundPid))
             throw std::runtime_error("failed to find process with name");
 
         if (!pFPGA->GetProcessInfo(foundPid, this->info))
@@ -321,6 +321,7 @@ namespace memstream {
         assert(this->getPid() && "null pid");
 
         assert(false && "todo impl");
+        return false;
     }
 
     // TODO: move some of these windows specific fncs into a WinProcess child class?
@@ -348,7 +349,7 @@ namespace memstream {
         if(dwSectionCount == 0) return 0;
 
         // will this blow the stack? (probably not..)
-        IMAGE_SECTION_HEADER sections[dwSectionCount];
+        auto sections = (IMAGE_SECTION_HEADER*)alloca(sizeof(IMAGE_SECTION_HEADER)*dwSectionCount);
 
         ok = VMMDLL_ProcessGetSectionsU(
                 this->pFPGA->getVmm(),
@@ -359,9 +360,10 @@ namespace memstream {
                 &dwSectionCount);
         if(!ok) return 0;
 
-        uint8_t cave_buffer[size];
+        uint8_t* cave_buffer = (uint8_t*)alloca(size);
 
-        for(IMAGE_SECTION_HEADER& section : sections) {
+        for(DWORD i = 0; i < dwSectionCount;i++) {
+            IMAGE_SECTION_HEADER& section = sections[i];
             // only sections with enough free space at the tail of the page
             // (pad our actual fnc size by PAD on each side)
             uint32_t free_bytes = 0x1000 - (section.Misc.VirtualSize & 0xfff);

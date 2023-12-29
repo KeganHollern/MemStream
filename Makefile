@@ -4,12 +4,12 @@ BUILD_ARGS ?=
 # TODO: implement this into our output path `./build/arch/type/memstream.so`
 BUILD_TYPE ?= Debug
 
+
+#TODO: this shit doesn't mount the disk properly on windows
+# this makes windows builders need to run this through WSL
+#	> wls
+#	> make linux
+#	> exit
 .PHONY: linux
 linux:
-	docker build -t memstream/linux $(BUILD_ARGS) .
-	docker run --rm -v $(PWD):/host memstream/linux cp -r /src/MemStream/build /host
-	docker rmi memstream/linux
-
-.PHONY: windows
-windows:
-	echo "TODO"
+	docker build -t memstream/linux $(BUILD_ARGS) . && docker run --rm -v ${CURDIR}:/host memstream/linux && docker rmi memstream/linux
