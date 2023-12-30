@@ -87,7 +87,7 @@ namespace memstream {
 
          bool ExecuteStagedWrites();
 
-         bool WriteMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
+         bool WriteMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &writeOps);
 
         // info stuff
 
@@ -125,9 +125,9 @@ namespace memstream {
 
         // Execute(fnc, args...) rax
         // Hook ?
-        bool isIs64Bit();
+        bool isIs64Bit() const;
 
-        uint32_t getPid();
+        uint32_t getPid() const;
 
     protected:
         VMMDLL_PROCESS_INFORMATION info;

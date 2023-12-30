@@ -1,14 +1,9 @@
-//
-// Created by Kegan Hollern on 12/23/23.
-//
-#include <cstdint>
 #include <cassert>
 #include <sstream>
 #include <string>
 #include <cstring>
 #include <tuple>
 #include <vector>
-#include <fstream>
 #include <stdexcept>
 
 #include <vmmdll.h>
@@ -47,13 +42,13 @@ namespace memstream {
 
     Process::~Process() = default;
 
-    bool Process::isIs64Bit() {
+    bool Process::isIs64Bit() const {
         assert(this->pFPGA && "null fpga");
 
         return this->info.tpMemoryModel == VMMDLL_MEMORYMODEL_X64;
     }
 
-    uint32_t Process::getPid() {
+    uint32_t Process::getPid() const {
         assert(this->pFPGA && "null fpga");
 
         return this->info.dwPID;
@@ -222,7 +217,7 @@ namespace memstream {
     }
 
     uint64_t Process::FindPattern(uint64_t start, uint64_t stop, const std::string &pattern) {
-        auto search = this->parsePattern(pattern);
+        auto search = memstream::Process::parsePattern(pattern);
 
         uint32_t len = stop - start;
 
@@ -360,7 +355,7 @@ namespace memstream {
                 &dwSectionCount);
         if(!ok) return 0;
 
-        uint8_t* cave_buffer = (uint8_t*)alloca(size);
+        auto cave_buffer = (uint8_t*)alloca(size);
 
         for(DWORD i = 0; i < dwSectionCount;i++) {
             IMAGE_SECTION_HEADER& section = sections[i];
@@ -390,8 +385,8 @@ namespace memstream {
 
             // check if read data contains any non-zero byte
             bool cave_ok = true;
-            for(uint32_t i = 0; i < size; i++) {
-                if(cave_buffer[i] != 0x0)
+            for(uint32_t j = 0; j < size; j++) {
+                if(cave_buffer[j] != 0x0)
                 {
                     cave_ok = false;
                     break;

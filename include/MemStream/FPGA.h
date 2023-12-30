@@ -40,7 +40,7 @@ namespace memstream {
 
         virtual ~FPGA();
 
-         bool DisableMasterAbort();
+         bool DisableMasterAbort() const;
 
          std::vector<uint32_t> GetAllProcessesByName(const std::string &name);
 
@@ -48,8 +48,8 @@ namespace memstream {
 
 
         VMM_HANDLE getVmm();
-        uint64_t getDeviceID();
-        void getVersion(uint64_t& major, uint64_t& minor);
+        uint64_t getDeviceID() const;
+        void getVersion(uint64_t& major, uint64_t& minor) const;
     protected:
         VMM_HANDLE vmm;
         uint64_t deviceID = 0;

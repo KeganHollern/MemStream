@@ -1,8 +1,4 @@
-//
-// Created by Kegan Hollern on 12/27/23.
-//
 #include <stdexcept>
-#include <cstdint>
 #include <cassert>
 
 #include "MemStream/DMA/Object.h"

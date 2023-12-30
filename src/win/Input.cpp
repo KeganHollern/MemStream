@@ -1,4 +1,3 @@
-#include <cstdint>
 #include <string>
 #include <cassert>
 #include <stdexcept>
@@ -7,7 +6,6 @@
 #include <vmmdll.h>
 
 #include "MemStream/FPGA.h"
-#include "MemStream/Utils.h"
 #include "MemStream/Process.h"
 #include "MemStream/Windows/Registry.h"
 #include "MemStream/Windows/Input.h"

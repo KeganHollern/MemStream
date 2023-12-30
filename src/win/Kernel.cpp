@@ -1,6 +1,5 @@
 #include <stdexcept>
 #include <vector>
-#include <string>
 #include <cassert>
 
 #include <vmmdll.h>
@@ -51,7 +50,7 @@ namespace memstream::windows {
 
         std::vector<std::string> results;
         for (auto &driver: modules) {
-            results.push_back(driver.uszText);
+            results.emplace_back(driver.uszText);
         }
 
         return results;

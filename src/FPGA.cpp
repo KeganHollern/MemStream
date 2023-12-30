@@ -1,10 +1,5 @@
-//
-// Created by Kegan Hollern on 12/23/23.
-//
 #include <cassert>
 #include <vector>
-#include <cstdint>
-#include <string>
 #include <cstring>
 #include <algorithm>
 #include <cctype>
@@ -52,7 +47,7 @@ namespace memstream {
         VMMDLL_Close(this->vmm);
     }
 
-    bool FPGA::DisableMasterAbort() {
+    bool FPGA::DisableMasterAbort() const {
         assert(this->vmm && "null vmm");
 
         if (this->majorVer < 4 || (this->majorVer < 5 && this->minorVer < 7))
@@ -136,13 +131,13 @@ namespace memstream {
         return results;
     }
 
-    uint64_t FPGA::getDeviceID() {
+    uint64_t FPGA::getDeviceID() const {
         assert(this->vmm && "null vmm");
 
         return this->deviceID;
     }
 
-    void FPGA::getVersion(uint64_t &major, uint64_t &minor) {
+    void FPGA::getVersion(uint64_t &major, uint64_t &minor) const {
         assert(this->vmm && "null vmm");
 
         major = this->majorVer;

@@ -1,4 +1,3 @@
-#include <string>
 #include <stdexcept>
 #include <cassert>
 
@@ -22,7 +21,7 @@ namespace memstream::windows {
     bool Registry::Query(const std::string &path, const RegistryType& type, std::wstring &value) {
         assert(this->pFPGA && "null fpga");
 
-        DWORD dwType = (DWORD)type;
+        auto dwType = (DWORD)type;
         uint8_t buffer[0x128];
         DWORD dwSize = sizeof(buffer);
 
