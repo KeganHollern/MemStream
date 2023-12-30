@@ -131,6 +131,7 @@ namespace memstream {
 
     protected:
         VMMDLL_PROCESS_INFORMATION info;
+        VMMDLL_SCATTER_HANDLE scatter;
         FPGA *pFPGA;
 
 

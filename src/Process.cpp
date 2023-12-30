@@ -22,6 +22,13 @@ namespace memstream {
             throw std::runtime_error("failed to get process info");
 
         this->pFPGA = pFPGA;
+
+        this->scatter = VMMDLL_Scatter_Initialize(
+                this->pFPGA->getVmm(),
+                this->getPid(),
+                VMM_READ_FLAGS);
+        if (!this->scatter)
+            throw std::runtime_error("failed to initialize scatter for process");
     }
 
     Process::Process(const std::string &name) : Process(GetDefaultFPGA(), name) {}
@@ -38,6 +45,13 @@ namespace memstream {
             throw std::runtime_error("failed to get process info");
 
         this->pFPGA = pFPGA;
+
+        this->scatter = VMMDLL_Scatter_Initialize(
+                this->pFPGA->getVmm(),
+                this->getPid(),
+                VMM_READ_FLAGS);
+        if (!this->scatter)
+            throw std::runtime_error("failed to initialize scatter for process");
     }
 
     Process::~Process() = default;
@@ -86,12 +100,6 @@ namespace memstream {
         assert(this->pFPGA && "null fpga");
         assert(this->getPid() && "null pid");
 
-        // init VMM scatter
-        VMMDLL_SCATTER_HANDLE hScatter = VMMDLL_Scatter_Initialize(
-                this->pFPGA->getVmm(),
-                this->getPid(),
-                VMM_READ_FLAGS);
-        if (!hScatter) return false;
 
         // push all reads into the scatter
         for (auto &read: readOps) {
@@ -105,24 +113,24 @@ namespace memstream {
             if (!len) continue;
 
             if (!VMMDLL_Scatter_PrepareEx(
-                    hScatter,
+                    this->scatter,
                     addr,
                     len,
                     buf,
                     nullptr)) {
-                VMMDLL_Scatter_CloseHandle(hScatter);
+                VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
                 return false;
             }
         }
 
         // execute read & clean up mem
-        if (!VMMDLL_Scatter_ExecuteRead(hScatter)) {
+        if (!VMMDLL_Scatter_ExecuteRead(this->scatter)) {
             // read execution failed for some reason
-            VMMDLL_Scatter_CloseHandle(hScatter);
+            VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
             return false;
         }
 
-        VMMDLL_Scatter_CloseHandle(hScatter);
+        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
         return true;
     }
 
@@ -157,11 +165,6 @@ namespace memstream {
         assert(this->getPid() && "null pid");
 
         // init VMM scatter
-        VMMDLL_SCATTER_HANDLE hScatter = VMMDLL_Scatter_Initialize(
-                this->pFPGA->getVmm(),
-                this->getPid(),
-                VMM_READ_FLAGS);
-        if (!hScatter) return false;
 
         // push all writes into the scatter
         for (auto &write: writeOps) {
@@ -175,23 +178,23 @@ namespace memstream {
             if (!len) continue;
 
             if (!VMMDLL_Scatter_PrepareWrite(
-                    hScatter,
+                    this->scatter,
                     addr,
                     buf,
                     len)) {
-                VMMDLL_Scatter_CloseHandle(hScatter);
+                VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
                 return false;
             }
         }
 
         // execute write & clean up mem
-        if (!VMMDLL_Scatter_Execute(hScatter)) {
+        if (!VMMDLL_Scatter_Execute(this->scatter)) {
             // write execution failed for some reason
-            VMMDLL_Scatter_CloseHandle(hScatter);
+            VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
             return false;
         }
 
-        VMMDLL_Scatter_CloseHandle(hScatter);
+        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
         return true;
     }
 
