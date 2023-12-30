@@ -100,8 +100,18 @@ namespace memstream {
         assert(this->pFPGA && "null fpga");
         assert(this->getPid() && "null pid");
 
+        // reinit vmm scatter if it's fucked
+        if(!this->scatter) {
+            this->scatter = VMMDLL_Scatter_Initialize(
+                    this->pFPGA->getVmm(),
+                    this->getPid(),
+                    VMM_READ_FLAGS);
+            if(!this->scatter) return false;
+        }
+
 
         // push all reads into the scatter
+        bool something_to_read = false;
         for (auto &read: readOps) {
             uint64_t addr = std::get<0>(read);
             uint8_t *buf = std::get<1>(read);
@@ -111,6 +121,7 @@ namespace memstream {
             if (!addr) continue;
             if (!buf) continue;
             if (!len) continue;
+            something_to_read = true;
 
             if (!VMMDLL_Scatter_PrepareEx(
                     this->scatter,
@@ -122,6 +133,9 @@ namespace memstream {
                 return false;
             }
         }
+
+        // idk if i should return true or false here....
+        if(!something_to_read) return true;
 
         // execute read & clean up mem
         if (!VMMDLL_Scatter_ExecuteRead(this->scatter)) {
@@ -164,8 +178,16 @@ namespace memstream {
         assert(this->pFPGA && "null fpga");
         assert(this->getPid() && "null pid");
 
-        // init VMM scatter
+        // reinit VMM scatter
+        if(!this->scatter) {
+            this->scatter = VMMDLL_Scatter_Initialize(
+                    this->pFPGA->getVmm(),
+                    this->getPid(),
+                    VMM_READ_FLAGS);
+            if(!this->scatter) return false;
+        }
 
+        bool something_to_write = false;
         // push all writes into the scatter
         for (auto &write: writeOps) {
             uint64_t addr = std::get<0>(write);
@@ -176,6 +198,7 @@ namespace memstream {
             if (!addr) continue;
             if (!buf) continue;
             if (!len) continue;
+            something_to_write = true;
 
             if (!VMMDLL_Scatter_PrepareWrite(
                     this->scatter,
@@ -186,6 +209,8 @@ namespace memstream {
                 return false;
             }
         }
+        // idk if i should return true or false here....
+        if(!something_to_write) return true;
 
         // execute write & clean up mem
         if (!VMMDLL_Scatter_Execute(this->scatter)) {
