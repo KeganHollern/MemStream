@@ -121,17 +121,20 @@ namespace memstream {
             if (!addr) continue;
             if (!buf) continue;
             if (!len) continue;
-            something_to_read = true;
 
             if (!VMMDLL_Scatter_PrepareEx(
                     this->scatter,
                     addr,
                     len,
                     buf,
-                    nullptr)) {
-                VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
+                    nullptr))
+            {
+                // only clear if we previously had preprared something
+                if(something_to_read) VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
                 return false;
             }
+
+            something_to_read = true;
         }
 
         // idk if i should return true or false here....
@@ -198,16 +201,17 @@ namespace memstream {
             if (!addr) continue;
             if (!buf) continue;
             if (!len) continue;
-            something_to_write = true;
 
             if (!VMMDLL_Scatter_PrepareWrite(
                     this->scatter,
                     addr,
                     buf,
-                    len)) {
-                VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
+                    len))
+            {
+                if(something_to_write) VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
                 return false;
             }
+            something_to_write = true;
         }
         // idk if i should return true or false here....
         if(!something_to_write) return true;
