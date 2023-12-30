@@ -4,7 +4,6 @@
 #include <stdexcept>
 #include <cstdint>
 #include <cassert>
-#include <iostream>
 
 #include "MemStream/DMA/Object.h"
 
@@ -36,15 +35,9 @@ namespace memstream::dma {
         assert(this->proc && "null proc");
 
         // can't read if null...
-        if(this->IsNull()) {
-            std::cout << "W: staged null object" << std::endl;
-            return;
-        }
+        if(this->IsNull()) return;
 
-        if(this->offsets.empty()) {
-            std::cout << "W: staged empty object" << std::endl;
-            return;
-        }
+        if(this->offsets.empty()) return;
 
         for (const auto &offset: this->offsets) {
             const uint32_t addr = offset.first;
