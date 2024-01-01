@@ -30,6 +30,7 @@ add_subdirectory(src)
 add_subdirectory(example/basic)
 add_subdirectory(example/input)
 add_subdirectory(example/objects)
+add_subdirectory(example/mono)
 
 # dependencies
 find_library(LeechCore leechcore ${CMAKE_CURRENT_SOURCE_DIR}/deps/memprocfs/lib/${CMAKE_HOST_SYSTEM_NAME}/${CMAKE_SYSTEM_PROCESSOR})
