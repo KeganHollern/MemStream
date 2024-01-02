@@ -5,6 +5,7 @@
 #include <thread>
 #include <iostream>
 #include <cassert>
+#include <codecvt>
 
 #include <MemStream/FPGA.h>
 #include <MemStream/Process.h>
@@ -14,6 +15,14 @@
 
 using namespace memstream;
 using namespace memstream::windows;
+
+#define PRNT(x) std::cout << std::hex << #x << ": 0x" << x << std::endl
+
+inline unsigned short utf8_to_utf16( const char* val ) {
+    std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+    std::u16string dest = convert.from_bytes( val );
+    return *reinterpret_cast<unsigned short*>( &dest[0] );
+}
 
 class Mono {
 public:
@@ -66,14 +75,17 @@ public:
         return buffer;
     }
     std::string AssemblyData_GetDirectory(uint64_t data_base) {
+        uint64_t str_addr = 0;
+        if(!proc.Read(data_base + OFF_DataDirectory, str_addr)) return {};
+
         char buffer[MAX_PATH] = {0};
-        if(!proc.Read(data_base + OFF_DataDirectory, (uint8_t*)buffer, sizeof(buffer))) return std::string();
+        if(!proc.Read(str_addr, (uint8_t*)buffer, sizeof(buffer))) return {};
         buffer[sizeof(buffer)-1] = 0; // ensure null termination
-        return std::string(buffer);
+        return buffer;
     }
     uint64_t AssemblyData_GetMonoImage(uint64_t data_base) {
         uint64_t result = 0;
-        if(!proc.Read(data_base + OFF_AssemblyNext, result)) return 0;
+        if(!proc.Read(data_base + OFF_DataMonoImage, result)) return 0;
         return result;
 
     }
@@ -132,13 +144,16 @@ public:
     uint64_t HashTable_Lookup(uint64_t hash_table, uint32_t key) {
         auto data = HashTable_GetData(hash_table);
         auto size = HashTable_GetSize(hash_table);
+
         uint64_t v4 = 0;
         if(!proc.Read(data + (0x8 * (key % size)), v4))
             return 0;
 
-        while(this->HashTable_KeyExtract(v4) != key) {
+        auto tableKey = this->HashTable_KeyExtract(v4);
+        while(tableKey != key) {
             v4 = this->HashTable_NextValue(v4);
             if(!v4) return 0;
+            tableKey = this->HashTable_KeyExtract(v4);
         }
 
         return v4;
@@ -154,8 +169,40 @@ public:
         if(!proc.Read(class_base + 0xd0, result)) return 0;
         return result;
     }
+    std::string Class_Name(uint64_t class_base) {
+        uint64_t str_addr = 0;
+        if(!proc.Read(class_base + 0x48, str_addr)) return {};
 
+        char buffer[128] = {0};
+        if(!proc.Read(str_addr, (uint8_t*)buffer, sizeof(buffer))) return {};
+        buffer[sizeof(buffer)-1] = 0; // ensure null termination
 
+        if((uint8_t)buffer[0] == 0xEE) { // if unicode...
+            char name_buff[ 32 ];
+            sprintf_s( name_buff, 32, "\\u%04X", utf8_to_utf16( const_cast<char*>( buffer ) ) );
+            return name_buff;
+        }
+
+        return buffer;
+    }
+    std::string Class_Namespace(uint64_t class_base) {
+        uint64_t str_addr = 0;
+        if(!proc.Read(class_base + 0x50, str_addr)) return {};
+
+        char buffer[128] = {0};
+        if(!proc.Read(str_addr, (uint8_t*)buffer, sizeof(buffer))) return {};
+        buffer[sizeof(buffer)-1] = 0; // ensure null termination
+
+        if((uint8_t)buffer[0] == 0xEE) { // if unicode...
+            char name_buff[ 32 ];
+            sprintf_s( name_buff, 32, "\\u%04X", utf8_to_utf16( const_cast<char*>( buffer ) ) );
+            return name_buff;
+        }
+
+        return buffer;
+    }
+
+    // actually returns assembly->data
     uint64_t FindAssembly(uint64_t root_domain, const std::string& name) {
         auto assembly = this->RootDomain_GetDomainAssemblies(root_domain);
         while(assembly) {
@@ -165,8 +212,7 @@ public:
                 goto next_item;
 
             assemblyName = this->AssemblyData_GetName(data);
-            std::cout << "\tFound: " << assemblyName << std::endl;
-            if(std::equal(name.begin(), name.end(), assemblyName.begin()))
+            if(assemblyName == name)
                 return data;
 
         next_item:
@@ -175,12 +221,65 @@ public:
 
         return 0;
     }
-    uint64_t FindClass(const std::string& assembly_name, const std::string class_name) {
+
+
+    // user facing functions...
+
+    std::vector<std::string> GetAssemblyNames() {
+        std::vector<std::string> results;
+        auto assembly = this->RootDomain_GetDomainAssemblies(this->GetRootDomain());
+        while(assembly) {
+            uint64_t data = this->DomainAssembly_GetData(assembly);
+            std::string assemblyName;
+            if(!data)
+                goto next_item;
+
+            assemblyName = this->AssemblyData_GetName(data);
+            results.emplace_back(assemblyName);
+
+            next_item:
+            assembly = this->DomainAssembly_GetNext(assembly);
+        }
+
+        return results;
+    }
+    std::vector<std::string> GetClasses(const std::string& assembly_name) {
+        std::vector<std::string> results;
+        auto root = this->GetRootDomain();
+        if(!root) return results;
+        auto assembly = this->FindAssembly(root, assembly_name);
+        if(!assembly) return results;
+        auto mono = this->AssemblyData_GetMonoImage(assembly);
+        if(!mono) return results;
+        auto table = this->MonoImage_GetTableInfo(mono, 2);
+        if(!table) return results;
+        auto row_count = this->TableInfo_GetRows(table);
+        auto hashtable = this->MonoImage_GetHashTable(mono);
+        for(int i = 0; i < row_count; i++) {
+            uint64_t mono_class = this->HashTable_Lookup(hashtable, 0x02000000 | i + 1);
+            if(!mono_class) continue;
+
+            std::string fullName;
+            std::string name = this->Class_Name(mono_class);
+            std::string ns = this->Class_Namespace(mono_class);
+
+            if(!ns.empty()) {
+                fullName = ns.append(".").append(name);
+            } else {
+                fullName = name;
+            }
+
+            results.emplace_back(fullName);
+        }
+        return results;
+    }
+
+    uint64_t FindClass(const std::string& assembly_name, const std::string& class_name) {
         auto root = this->GetRootDomain();
         if(!root) return 0;
-        auto domain = this->FindAssembly(root, assembly_name);
-        if(!domain) return 0;
-        auto mono = this->AssemblyData_GetMonoImage(domain);
+        auto assembly = this->FindAssembly(root, assembly_name);
+        if(!assembly) return 0;
+        auto mono = this->AssemblyData_GetMonoImage(assembly);
         if(!mono) return 0;
         auto table = this->MonoImage_GetTableInfo(mono, 2);
         if(!table) return 0;
@@ -190,6 +289,20 @@ public:
             uint64_t mono_class = this->HashTable_Lookup(hashtable, 0x02000000 | i + 1);
             if(!mono_class) continue;
 
+            std::string fullName;
+            std::string name = this->Class_Name(mono_class);
+            std::string ns = this->Class_Namespace(mono_class);
+
+            if(!ns.empty()) {
+                fullName = ns.append(".").append(name);
+            } else {
+                fullName = name;
+            }
+
+            if(fullName == class_name)
+            {
+                return mono_class;
+            }
         }
         return 0;
     }
@@ -234,11 +347,38 @@ int main() {
         std::cout << "Dumping Mono for " << procname << std::endl;
         Mono process(procname);
 
-        uint64_t root = process.GetRootDomain();
-        std::cout << "ROOT: 0x" << std::hex << root << std::endl;
+        //uint64_t root = process.GetRootDomain();
+        // std::cout << "ROOT: 0x" << std::hex << root << std::endl;
 
-        uint64_t asmcsharp = process.FindAssembly(root, "Assembly-CSharp");
-        std::cout <<std::hex << "Assembly-CSharp: 0x" << asmcsharp << std::endl;
+        std::cout << std::endl;
+        std::cout << "Assemblies:" << std::endl;
+        auto assemblies = process.GetAssemblyNames();
+        for(auto& asmName : assemblies) {
+            std::cout << "\t" << asmName << std::endl;
+        }
+
+        // uint64_t asmcsharp = process.FindAssembly(root, "Assembly-CSharp");
+        // std::cout <<std::hex << "Assembly-CSharp: 0x" << asmcsharp << std::endl;
+
+        std::cout << "Enter Assembly Name: ";
+        std::string asmname;
+        std::cin >> asmname;
+
+
+        std::cout << std::endl;
+        std::cout << "Classes:" << std::endl;
+        auto classes = process.GetClasses(asmname);
+        for(auto& className : classes) {
+            std::cout << "\t" << className << std::endl;
+        }
+
+
+
+        // some debugging stuff
+        //uint64_t player = process.FindClass("Assembly-CSharp", "EFT.Player");
+        //std::cout <<std::hex << "EFT.Player: 0x" << player << std::endl;
+
+
 
 
     } catch (std::exception& ex) {
