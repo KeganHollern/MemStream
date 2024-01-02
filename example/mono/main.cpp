@@ -6,6 +6,11 @@
 #include <iostream>
 #include <cassert>
 #include <codecvt>
+#include <algorithm>
+#include <tuple>
+#include <vector>
+#include <sstream>
+#include <iomanip>
 
 #include <MemStream/FPGA.h>
 #include <MemStream/Process.h>
@@ -39,17 +44,17 @@ public:
         return result;
     }
     // -- ROOT_DOMAIN GETTERS
-    uint64_t RootDomain_GetDomainAssemblies(uint64_t root_domain) {
+    uint64_t Domain_GetDomainAssemblies(uint64_t root_domain) {
         uint64_t result = 0;
         if(!proc.Read(root_domain + OFF_DomainAssemblies, result)) return 0;
         return result;
     }
-    int RootDomain_GetDomainID(uint64_t root_domain) {
+    int Domain_GetDomainID(uint64_t root_domain) {
         int result = 0;
         if(!proc.Read(root_domain + OFF_DomainID, result)) return 0;
         return result;
     }
-    uint64_t RootDomain_GetJittedFunctionTable(uint64_t root_domain) {
+    uint64_t Domain_GetJittedFunctionTable(uint64_t root_domain) {
         uint64_t result = 0;
         if(!proc.Read(root_domain + OFF_JittedFunctionTable, result)) return 0;
         return result;
@@ -169,6 +174,18 @@ public:
         if(!proc.Read(class_base + 0xd0, result)) return 0;
         return result;
     }
+    std::string Class_Fullname(uint64_t class_base) {
+        std::string fullName;
+        std::string name = this->Class_Name(class_base);
+        std::string ns = this->Class_Namespace(class_base);
+
+        if(!ns.empty()) {
+            fullName = ns.append(".").append(name);
+        } else {
+            fullName = name;
+        }
+        return fullName;
+    }
     std::string Class_Name(uint64_t class_base) {
         uint64_t str_addr = 0;
         if(!proc.Read(class_base + 0x48, str_addr)) return {};
@@ -201,10 +218,79 @@ public:
 
         return buffer;
     }
+    uint64_t Class_GetField(uint64_t class_base, uint32_t idx) {
+        uint64_t fields_array = 0;
+        if(!proc.Read(class_base + 0x98, fields_array)) return 0;
+        return fields_array + (0x20 * idx);
+    }
+    //--- RUNTIME INFO
+    int RuntimeInfo_MaxDomain(uint64_t runtimeinfo_base) {
+        int result = 0;
+        if(!proc.Read(runtimeinfo_base + 0x0, result)) return 0;
+        return result;
+    }
+    uint64_t RuntimeInfo_GetVtable(uint64_t runtimeinfo_base, int domain) {
+        uint64_t result = 0;
+        if(!proc.Read(runtimeinfo_base + 0x8 + (0x8 * domain), result)) return 0;
+        return result;
+    }
+    //--- VTABLE
+    uint8_t VTable_GetFlags (uint64_t vtable_base) {
+        uint8_t result = 0;
+        if(!proc.Read(vtable_base + 0x30, result)) return 0;
+        return result;
+    }
+    uint64_t VTable_GetStaticFieldData(uint64_t vtable_base) {
+        uint64_t r1 = 0;
+        if(!proc.Read(vtable_base, r1) || !r1) return 0;
+        int r2 = 0;
+        if(!proc.Read(r1 + 0x5c, r2)) return 0;
+        uint64_t r3 = 0;
+        if(!proc.Read(vtable_base + 0x40 + (0x8 * r2), r3)) return 0;
+        return r3;
+    }
+    //--- FIELDS
+    uint64_t Field_GetType(uint64_t field_base) {
+        uint64_t result = 0;
+        if(!proc.Read(field_base + 0x0, result)) return 0;
+        return result;
+    }
+    int Field_GetOffset(uint64_t field_base) {
+        int result = 0;
+        if(!proc.Read(field_base + 0x18, result)) return 0;
+        return result;
+    }
+    std::string Field_GetName(uint64_t field_base) {
+        uint64_t str_addr = 0;
+        if(!proc.Read(field_base + 0x8, str_addr)) return {};
+
+        char buffer[128] = {0};
+        if(!proc.Read(str_addr, (uint8_t*)buffer, sizeof(buffer))) return {};
+        buffer[sizeof(buffer)-1] = 0; // ensure null termination
+
+        if((uint8_t)buffer[0] == 0xEE) { // if unicode...
+            char name_buff[ 32 ];
+            sprintf_s( name_buff, 32, "\\u%04X", utf8_to_utf16( const_cast<char*>( buffer ) ) );
+            return name_buff;
+        }
+
+        return buffer;
+    }
+    //--- Type Info
+    uint64_t Type_GetClass(uint64_t type_base) {
+        uint64_t result = 0;
+        if(!proc.Read(type_base + 0x0, result)) return 0;
+        return result;
+    }
+    uint64_t Type_GetAttribs(uint64_t type_base) {
+        uint64_t result = 0;
+        if(!proc.Read(type_base + 0x8, result)) return 0;
+        return result;
+    }
 
     // actually returns assembly->data
     uint64_t FindAssembly(uint64_t root_domain, const std::string& name) {
-        auto assembly = this->RootDomain_GetDomainAssemblies(root_domain);
+        auto assembly = this->Domain_GetDomainAssemblies(root_domain);
         while(assembly) {
             uint64_t data = this->DomainAssembly_GetData(assembly);
             std::string assemblyName;
@@ -224,10 +310,9 @@ public:
 
 
     // user facing functions...
-
     std::vector<std::string> GetAssemblyNames() {
         std::vector<std::string> results;
-        auto assembly = this->RootDomain_GetDomainAssemblies(this->GetRootDomain());
+        auto assembly = this->Domain_GetDomainAssemblies(this->GetRootDomain());
         while(assembly) {
             uint64_t data = this->DomainAssembly_GetData(assembly);
             std::string assemblyName;
@@ -243,6 +328,7 @@ public:
 
         return results;
     }
+    //TODO: avoid duplicate code and take in a uint64_t ASSEMBLY address
     std::vector<std::string> GetClasses(const std::string& assembly_name) {
         std::vector<std::string> results;
         auto root = this->GetRootDomain();
@@ -259,15 +345,7 @@ public:
             uint64_t mono_class = this->HashTable_Lookup(hashtable, 0x02000000 | i + 1);
             if(!mono_class) continue;
 
-            std::string fullName;
-            std::string name = this->Class_Name(mono_class);
-            std::string ns = this->Class_Namespace(mono_class);
-
-            if(!ns.empty()) {
-                fullName = ns.append(".").append(name);
-            } else {
-                fullName = name;
-            }
+            std::string fullName = this->Class_Fullname(mono_class);
 
             results.emplace_back(fullName);
         }
@@ -337,48 +415,74 @@ int main() {
         dev = fpga->getDeviceID();
 
         std::cout << "FPGA: Device #" << dev << " v" << maj << "." << min << std::endl;
+        std::cout << "Dumping EFT.Player from Tarkov..." << std::endl;
+        Mono process("EscapeFromTarkov.exe");
 
-        // TODO: stdin the process name to dump mono for....
+        // get root domain
+        auto root = process.GetRootDomain();
+        auto domain_id = process.Domain_GetDomainID(root);
+        // find hard settings
+        uint64_t hardsettings_mono = process.FindClass("Assembly-CSharp", "EFTHardSettings");
+        // extract RTI and ensure max_domain is >= domain_id
+        auto rti = process.Class_RuntimeInfo(hardsettings_mono);
+        if(!rti) throw std::runtime_error("unable to find hardsettings RTI");
+        auto max_domain = process.RuntimeInfo_MaxDomain(rti);
+        if(domain_id > max_domain) throw std::runtime_error("invalid vtable domain id!");
 
-        std::cout << "Enter Process Name: ";
-        std::string procname;
-        std::cin >> procname;
-
-        std::cout << "Dumping Mono for " << procname << std::endl;
-        Mono process(procname);
-
-        //uint64_t root = process.GetRootDomain();
-        // std::cout << "ROOT: 0x" << std::hex << root << std::endl;
-
-        std::cout << std::endl;
-        std::cout << "Assemblies:" << std::endl;
-        auto assemblies = process.GetAssemblyNames();
-        for(auto& asmName : assemblies) {
-            std::cout << "\t" << asmName << std::endl;
-        }
-
-        // uint64_t asmcsharp = process.FindAssembly(root, "Assembly-CSharp");
-        // std::cout <<std::hex << "Assembly-CSharp: 0x" << asmcsharp << std::endl;
-
-        std::cout << "Enter Assembly Name: ";
-        std::string asmname;
-        std::cin >> asmname;
-
-
-        std::cout << std::endl;
-        std::cout << "Classes:" << std::endl;
-        auto classes = process.GetClasses(asmname);
-        for(auto& className : classes) {
-            std::cout << "\t" << className << std::endl;
-        }
-
+        auto vtable = process.RuntimeInfo_GetVtable(rti, domain_id);
+        auto vt_flags = process.VTable_GetFlags(vtable);
+        if((vt_flags & 4) == 0) throw std::runtime_error("bad rti flags!");
+        auto static_data = process.VTable_GetStaticFieldData(vtable);
+        std::cout << std::hex << "EFTHardSettings: 0x" << static_data << std::endl;
 
 
         // some debugging stuff
-        //uint64_t player = process.FindClass("Assembly-CSharp", "EFT.Player");
-        //std::cout <<std::hex << "EFT.Player: 0x" << player << std::endl;
+        uint64_t player_mono = process.FindClass("Assembly-CSharp", "EFT.Player");
+        std::cout <<std::hex << "EFT.Player: 0x" << player_mono << std::endl;
+        if(!player_mono) throw std::runtime_error("failed to find EFT.Player");
 
 
+        // offset, name, type
+        std::vector<std::tuple<uint64_t, std::string, std::string, uint64_t>> class_info;
+
+        auto num_fields = process.Class_NumFields(player_mono);
+        for(int i = 0; i < num_fields;i++) {
+            auto field = process.Class_GetField(player_mono, i);
+            if(!field) throw std::runtime_error("invalid field");
+            auto name = process.Field_GetName(field);
+            auto offset = process.Field_GetOffset(field);
+            auto type = process.Field_GetType(field);
+
+
+
+            std::string displayType = "Unknown Native Type";
+            uint64_t attribs = 0;
+            if(type) {
+                auto type_class = process.Type_GetClass(type);
+                attribs = process.Type_GetAttribs(type);
+                if(type_class) {
+                    displayType = process.Class_Fullname(type_class);
+                }
+
+            }
+
+            class_info.emplace_back(offset, name, displayType, attribs);
+        }
+
+
+        std::sort(class_info.begin(), class_info.end(),
+                  [](const std::tuple<uint64_t, std::string, std::string, uint64_t>& a,
+                     const std::tuple<uint64_t, std::string, std::string, uint64_t>& b) -> bool {
+                      // Compare first fields
+                      if (std::get<0>(a) != std::get<0>(b))
+                          return std::get<0>(a) < std::get<0>(b);
+                      // If first fields are equal, compare second fields
+                      return std::get<1>(a) < std::get<1>(b);
+                  });
+
+        for (const auto& tuple : class_info) {
+            std::cout << "\t0x" << std::hex << std::get<0>(tuple) << ": " << std::get<1>(tuple) << " - " << std::get<2>(tuple)  << " - " << std::get<3>(tuple) << std::endl;
+        }
 
 
     } catch (std::exception& ex) {
