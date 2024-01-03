@@ -43,7 +43,11 @@ namespace memstream {
 
     FPGA::~FPGA() {
         assert(this->vmm && "null vmm");
-
+        // if we deconstruct the global default device, we need to ensure we nullptr it
+        // this way getDefaultFpga() will still function!
+        if(this == gDevice) {
+            gDevice = nullptr;
+        }
         VMMDLL_Close(this->vmm);
     }
 
