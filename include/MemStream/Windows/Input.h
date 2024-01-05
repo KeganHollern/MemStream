@@ -44,6 +44,10 @@ namespace memstream::windows {
         bool Update();
 
         bool IsKeyDown(uint32_t vk);
+        bool WasKeyDown(uint32_t vk);
+        bool OnPress(uint32_t vk);
+        bool OnRelease(uint32_t vk);
+        void OnKeyStateChange(void(*callback)(int, bool));
 
         MousePoint GetCursorPos();
 
@@ -55,7 +59,8 @@ namespace memstream::windows {
 
         MousePoint cursorPos{0};
         uint8_t state[64]{0};
-        uint8_t prevState[256 / 8]{0};
+        uint8_t prevState[64]{0};
+        void(*key_callback)(int, bool) = nullptr;
     };
 
 }

@@ -69,6 +69,10 @@ namespace memstream {
     }
 
     void Process::StageRead(uint64_t addr, uint8_t *buffer, uint32_t size) {
+        if(!addr) return;
+        if(!buffer) return;
+        if(!size) return;
+
         this->stagedReads.emplace_back(addr, buffer, size);
     }
 
@@ -102,6 +106,9 @@ namespace memstream {
 
         // reinit vmm scatter if it's fucked
         if(!this->scatter) {
+
+            // THIS SHOULD NOT HAPPEN
+
             this->scatter = VMMDLL_Scatter_Initialize(
                     this->pFPGA->getVmm(),
                     this->getPid(),

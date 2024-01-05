@@ -54,7 +54,10 @@ namespace memstream::dma {
 
     // push an offset to this object structure
     void Object::Push(uint32_t off, uint32_t size) {
-        this->PushBuffer(off, new uint8_t[size], size);
+        uint8_t* buffer = new uint8_t[size];
+        memset(buffer, 0, size);
+
+        this->PushBuffer(off, buffer, size);
     }
 
     // push an offset to this object structure & store its read data at the buffer

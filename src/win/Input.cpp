@@ -86,10 +86,18 @@ namespace memstream::windows {
         if (!this->winlogon->ReadMany(reads))
             return false;
 
-        for (int vk = 0; vk < 256; ++vk)
+        for (int vk = 0; vk < 256; ++vk) {
             if ((this->state[((vk * 2) / 8)] & 1 << (vk % 8)) &&
                 !(previous_key_state_bitmap[((vk * 2) / 8)] & 1 << (vk % 8)))
                 this->prevState[vk / 8] |= 1 << (vk % 8);
+
+            if(!this->key_callback) continue;
+
+            if(this->OnPress(vk)) key_callback(vk, true);
+            if(this->OnRelease(vk)) key_callback(vk, false);
+        }
+
+
 
         return true;
     }
@@ -97,6 +105,21 @@ namespace memstream::windows {
     bool Input::IsKeyDown(uint32_t vk) {
         return this->state[((vk * 2) / 8)] & 1 << (vk % 8);
     }
+    bool Input::WasKeyDown(uint32_t vk) {
+        return this->prevState[((vk * 2) / 8)] & 1 << (vk % 8);
+    }
+
+    bool Input::OnPress(uint32_t vk) {
+        return this->IsKeyDown(vk) && !this->WasKeyDown(vk);
+    }
+    bool Input::OnRelease(uint32_t vk) {
+        return this->WasKeyDown(vk) && !this->IsKeyDown(vk);
+    }
+
+    void Input::OnKeyStateChange(void(*callback)(int, bool)) {
+
+    }
+
 
     MousePoint Input::GetCursorPos() {
         return this->cursorPos;
