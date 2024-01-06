@@ -23,15 +23,12 @@ namespace memstream {
 
         this->pFPGA = pFPGA;
 
-        //TODO: reimpl when scatter reads stop crashing
-        /*
         this->scatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
                 this->getPid(),
                 VMM_READ_FLAGS);
         if (!this->scatter)
             throw std::runtime_error("failed to initialize scatter for process");
-            */
     }
 
     Process::Process(const std::string &name) : Process(GetDefaultFPGA(), name) {}
@@ -49,15 +46,12 @@ namespace memstream {
 
         this->pFPGA = pFPGA;
 
-        // TODO: reimpl when scatter reads stop crashing
-        /*
         this->scatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
                 this->getPid(),
                 VMM_READ_FLAGS);
         if (!this->scatter)
             throw std::runtime_error("failed to initialize scatter for process");
-            */
     }
 
     Process::~Process() = default;
@@ -113,11 +107,15 @@ namespace memstream {
         assert(this->getPid() && "null pid");
 
         // initialize a scatter
-        auto hScatter = VMMDLL_Scatter_Initialize(
-                this->pFPGA->getVmm(),
-                this->getPid(),
-                VMMDLL_FLAG_NOCACHE);
-        if(!hScatter) return false;
+        if(!this->scatter) {
+            auto new_scatter = VMMDLL_Scatter_Initialize(
+                    this->pFPGA->getVmm(),
+                    this->getPid(),
+                    VMM_READ_FLAGS);
+            if (!new_scatter) return false;
+            this->scatter = new_scatter;
+        }
+
         bool success = true;
 
         // push all reads into the scatter
@@ -133,7 +131,7 @@ namespace memstream {
             if (!len) continue;
 
             DWORD memoryPrepared = NULL;
-            if (!VMMDLL_Scatter_PrepareEx(hScatter, addr, len, buf, &memoryPrepared))  {
+            if (!VMMDLL_Scatter_PrepareEx(this->scatter, addr, len, buf, &memoryPrepared))  {
                 // failed to prep a read
                 // return failed
                 success = false;
@@ -149,13 +147,13 @@ namespace memstream {
             goto done_scatter;
 
         // execute read
-        success = VMMDLL_Scatter_ExecuteRead(hScatter);
+        success = VMMDLL_Scatter_ExecuteRead(this->scatter);
 
         // clean memory
         // return success status
     done_scatter:
-        VMMDLL_Scatter_Clear(hScatter, this->getPid(), NULL);
-        VMMDLL_Scatter_CloseHandle(hScatter);
+        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
+        //VMMDLL_Scatter_CloseHandle(this->scatter);
         return success;
     }
 
@@ -190,9 +188,6 @@ namespace memstream {
         assert(this->getPid() && "null pid");
 
 
-        return false;
-        // TODO: reimplement when scatter reads stop crashing
-        /*
         // reinit VMM scatter
         if(!this->scatter) {
             this->scatter = VMMDLL_Scatter_Initialize(
@@ -237,7 +232,7 @@ namespace memstream {
 
         VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
         return true;
-         */
+
     }
 
     // ex: IDA pattern: 00 0A FF FF ?? ?? ?? ?? C3
