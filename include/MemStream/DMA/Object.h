@@ -37,6 +37,11 @@ namespace memstream::dma {
             // new object for process
             explicit Object(Process* process);
 
+
+            void PushCachedBuffer(uint32_t off, uint8_t* buffer, uint32_t size);
+            void PushCached(uint32_t off, uint32_t size);
+            // void ResetCache(uint32_t off); // TODO ? how do we invalidate cache...
+
             // immediate read of object values
             bool Read();
 
@@ -51,6 +56,7 @@ namespace memstream::dma {
             void Push(uint32_t off, uint32_t size);
             uint32_t Size(uint32_t off);
             uint8_t* Get(uint32_t off);
+
             template<typename T>
             inline bool Get(uint32_t off, T& value) {
                 auto buff = this->Get(off);
@@ -72,7 +78,14 @@ namespace memstream::dma {
 
             uint64_t base;
         protected:
-            std::unordered_map<uint32_t, std::tuple<uint8_t*, uint32_t>> offsets{};
+            struct offset {
+                uint8_t* buffer;
+                uint32_t size;
+                bool cache;
+                ULONGLONG last_cache;
+            };
+
+            std::unordered_map<uint32_t, offset> offsets{};
             Process* proc;
         };
 
