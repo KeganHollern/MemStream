@@ -83,6 +83,8 @@ namespace memstream {
     }
 
     bool Process::ExecuteStagedReads() {
+        if(this->stagedReads.empty()) return true;
+
         bool result = this->ReadMany(this->stagedReads);
         this->stagedReads.clear();
         return result;
