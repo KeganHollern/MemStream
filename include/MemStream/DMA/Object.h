@@ -42,10 +42,12 @@ namespace memstream::dma {
             void PushCached(uint32_t off, uint32_t size);
             // void ResetCache(uint32_t off); // TODO ? how do we invalidate cache...
 
-            // immediate read of object values
-            bool Read();
+            //writes
+            bool Write();
+            void StageWrite();
 
-            // stage read of object value
+            // reads
+            bool Read();
             void StageRead();
 
             // is this object NULL (default)

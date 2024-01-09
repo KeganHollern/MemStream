@@ -27,6 +27,41 @@ namespace memstream::dma {
         return this->proc->ExecuteStagedReads(); // read
     }
 
+
+    bool Object::Write() {
+        assert(this->proc && "null proc");
+
+        if(this->IsNull()) return true;
+        if (this->offsets.empty()) return true;
+
+        this->StageWrite(); // stage offsets for read
+        return this->proc->ExecuteStagedWrites(); // read
+    }
+    void Object::StageWrite() {
+        assert(this->proc && "null proc");
+
+        // can't read if null...
+        if(this->IsNull()) return;
+        if(this->offsets.empty()) return;
+
+        for (auto &offset: this->offsets) {
+            const uint32_t addr = offset.first;
+            auto& value = offset.second;
+
+            uint8_t* buffer = value.buffer;
+            uint32_t size = value.size;
+
+            if (!buffer) continue;
+            if (size == 0) continue;
+
+            this->proc->StageWrite(
+                    this->base + addr, // BASE+OFF]
+                    buffer, // BUFFER of N BYTES
+                    size); // N (length of buffer)
+        }
+    }
+
+
     void Object::StageRead() {
         assert(this->proc && "null proc");
 
