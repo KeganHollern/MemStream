@@ -38,21 +38,21 @@ namespace memstream::windows {
         explicit Input(FPGA *pFPGA);
 
         Input();
-
         virtual ~Input();
 
         bool Update();
 
-        bool IsKeyDown(uint32_t vk);
-        bool WasKeyDown(uint32_t vk);
-        bool OnPress(uint32_t vk);
-        bool OnRelease(uint32_t vk);
-        void OnKeyStateChange(void(*callback)(int, bool));
+        bool IsKeyDown(uint32_t vk); // if key is down _this_ frame
+        bool WasKeyDown(uint32_t vk); // if key was down _last_ frame
+        bool OnPress(uint32_t vk); // if key is down _this_ frame and NOT _last_ frame
+        bool OnRelease(uint32_t vk); // if key was down _last_ frame and NOT _this_ frame
+
+        void OnKeyStateChange(void(*callback)(int, bool)); // set a callback to be run on key state change
 
         MousePoint GetCursorPos();
-
     private:
         Process *winlogon;
+
         // kernel virtual address of async keystate value
         uint64_t gafAsyncKeyStateAddr;
         uint64_t gptCursorAsync;

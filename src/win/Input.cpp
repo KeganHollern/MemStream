@@ -14,14 +14,9 @@
 namespace memstream::windows {
     // forward declares of helpers...
     uint64_t getAsyncKeystateWin11(FPGA *pFPGA);
-
     uint64_t getAsyncKeystateWin10(FPGA *pFPGA);
-
     uint32_t getWindowsVersion(FPGA *pFPGA);
-
-    uint64_t getAsyncCursorWin11(FPGA *pFPGA);
-
-    uint64_t getAsyncCursorWin10(FPGA *pFPGA);
+    uint64_t getAsyncCursor(FPGA *pFPGA);
 
     Input::Input() : Input(GetDefaultFPGA()) {}
 
@@ -29,36 +24,72 @@ namespace memstream::windows {
         if (!pFPGA)
             throw std::invalid_argument("null fpga");
 
-        DWORD pid = 0;
-        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), "winlogon.exe", &pid))
-            throw std::runtime_error("failed to find winlogon");
-
         uint32_t version = getWindowsVersion(pFPGA);
         if(version == 0)
             throw std::runtime_error("failed to detect windows version");
 
-        // find kernel locations of our data
+        // --- create winlogon process w/ kernel memory access :)
+
+        DWORD pid = 0;
+        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), "winlogon.exe", &pid))
+            throw std::runtime_error("failed to find winlogon");
+
+        this->winlogon = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
+
+        // depending on win version (10 vs 11) grab keyboard state...
         if (version > 22000) {
-            this->gafAsyncKeyStateAddr = getAsyncKeystateWin11(pFPGA);
-            this->gptCursorAsync = getAsyncCursorWin11(pFPGA);
+            uint64_t base = this->winlogon->GetModuleBase("win32ksgd.sys");
+
+            if (!base)
+                throw std::runtime_error("could not find win32ksgd.sys");
+
+            uint64_t addr = base + 0x3110;
+            uint64_t r1, r2, r3 = 0;
+
+            if(!this->winlogon->Read(addr, r1))
+                throw std::runtime_error("failed to read win32ksgd.sys");
+
+            if(!r1)
+                throw std::runtime_error("failed to read r1 in win32ksgd.sys");
+
+            for(int i = 0; i < 4; i++) {
+                if(!this->winlogon->Read(r1 + (i * 8), r2))
+                    throw std::runtime_error("failed to read win32ksgd.sys");
+
+                if(r2) break;
+            }
+
+            if(!r2)
+                throw std::runtime_error("failed to read r2 in win32ksgd.sys");
+
+            if(!this->winlogon->Read(r2, r3))
+                throw std::runtime_error("failed to read win32ksgd.sys");
+
+            if(!r3)
+                throw std::runtime_error("failed to read r3 in win32ksgd.sys");
+
+            uint64_t result = r3 + 0x3690;
+
+            this->gafAsyncKeyStateAddr = result;
         } else {
-            this->gafAsyncKeyStateAddr = getAsyncKeystateWin10(pFPGA);
-            this->gptCursorAsync = getAsyncCursorWin10(pFPGA);
+            this->gafAsyncKeyStateAddr = this->winlogon->GetExport("win32kbase.sys", "gafAsyncKeyState");
         }
 
-        // failed to find :(
+        this->gptCursorAsync = this->winlogon->GetExport("win32kbase.sys", "gptCursorAsync");
+
+        // failed to find one of our offsets :(
         if (this->gafAsyncKeyStateAddr <= 0x7FFFFFFFFFFF)
             throw std::runtime_error("failed to find gafAsyncKeyState");
 
         if (this->gptCursorAsync <= 0x7FFFFFFFFFFF)
             throw std::runtime_error("failed to find CURSOR");
 
-        this->winlogon = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
+
+
     }
 
     Input::~Input() {
         assert(this->winlogon && "no winlogon process");
-
         delete this->winlogon;
     }
 
@@ -67,17 +98,10 @@ namespace memstream::windows {
         assert(this->gafAsyncKeyStateAddr && "no keyboard addr");
         assert(this->gptCursorAsync && "no cursor addr");
 
-        uint8_t previous_key_state_bitmap[64] = {0};
-        std::memcpy(previous_key_state_bitmap, this->state, sizeof(uint8_t[64]));
+        // save our old state
+        std::memcpy(this->prevState, this->state, sizeof(uint8_t[64]));
 
-        /* Example of staged reads
-        this->winlogon->StageRead(this->gafAsyncKeyStateAddr, this->state);
-        this->winlogon->StageRead(this->gptCursorAsync, this->cursorPos);
-        if(!this->winlogon->ExecuteStagedReads())
-            return false;
-        */
-
-        // using scatter read to optimize
+        // scatter read these values
         std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> reads = {
                 {this->gafAsyncKeyStateAddr, (uint8_t *) &this->state,     sizeof(uint8_t[64])},
                 {this->gptCursorAsync,       (uint8_t *) &this->cursorPos, sizeof(MousePoint)},
@@ -86,27 +110,25 @@ namespace memstream::windows {
         if (!this->winlogon->ReadMany(reads))
             return false;
 
+        // at this point we have the current keyboard state in this->state and the last in this->prevState
+        // so we can determine if any key input has changed
+        // and handle callbacks for that as needed
         for (int vk = 0; vk < 256; ++vk) {
-            if ((this->state[((vk * 2) / 8)] & 1 << (vk % 8)) &&
-                !(previous_key_state_bitmap[((vk * 2) / 8)] & 1 << (vk % 8)))
-                this->prevState[vk / 8] |= 1 << (vk % 8);
-
-            if(!this->key_callback) continue;
-
-            if(this->OnPress(vk)) key_callback(vk, true);
-            if(this->OnRelease(vk)) key_callback(vk, false);
+            if(this->key_callback) { // we want to capture key state changes
+                if (this->IsKeyDown(vk) != this->WasKeyDown(vk)) { // the key state has changed since the last time we read
+                    this->key_callback(vk, this->IsKeyDown(vk)); // notify of state change
+                }
+            }
         }
-
-
 
         return true;
     }
 
     bool Input::IsKeyDown(uint32_t vk) {
-        return this->state[((vk * 2) / 8)] & 1 << (vk % 8);
+        return this->state[(vk * 2 / 8)] & 1 << vk % 4 * 2;
     }
     bool Input::WasKeyDown(uint32_t vk) {
-        return this->prevState[((vk * 2) / 8)] & 1 << (vk % 8);
+        return this->prevState[(vk * 2 / 8)] & 1 << vk % 4 * 2;
     }
 
     bool Input::OnPress(uint32_t vk) {
@@ -117,7 +139,7 @@ namespace memstream::windows {
     }
 
     void Input::OnKeyStateChange(void(*callback)(int, bool)) {
-
+        this->key_callback = callback;
     }
 
 
@@ -134,78 +156,11 @@ namespace memstream::windows {
         std::wstring version;
         Registry reg(pFPGA);
         bool ok = reg.Query(
-                R"(HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\CurrentBuild)",
+                "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\CurrentBuild",
                 RegistryType::sz,
                 version);
         if (!ok) return 0;
 
         return std::stoi(version);
-    }
-
-    uint64_t getAsyncCursorWin10(FPGA *pFPGA) {
-        if (!pFPGA) return 0;
-
-        auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
-        for(auto& pid : pids) {
-            Process tmp(pFPGA, pid); // csrss is special and can access .sys modules without flag
-            auto result = tmp.GetExport("win32kbase.sys", "gptCursorAsync");
-            if(result > 0x7FFFFFFFFFFF)
-                return result;
-        }
-
-        return 0;
-    }
-
-    uint64_t getAsyncKeystateWin10(FPGA *pFPGA) {
-        if (!pFPGA) return 0;
-
-        auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
-        for(auto& pid : pids) {
-            Process tmp(pFPGA, pid); // csrss is special and can access .sys modules without flag
-            auto result = tmp.GetExport("win32kbase.sys", "gafAsyncKeyState");
-            if(result > 0x7FFFFFFFFFFF)
-                return result;
-        }
-
-        return 0;
-    }
-
-    uint64_t getAsyncKeystateWin11(FPGA *pFPGA) {
-        if (!pFPGA) return 0;
-
-        // search for async keystate export addr
-        auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
-        for(auto& pid : pids) {
-
-            Process tmp(pFPGA, pid); // csrss is special and can access .sys modules without flag
-
-            uint64_t base = tmp.GetModuleBase("win32ksgd.sys");
-            if (!base) return 0;
-
-            uint64_t addr = base + 0x3110;
-            uint64_t r1, r2, r3 = 0;
-
-            if(!tmp.Read(addr, r1)) return 0;
-            if(!r1) return 0;
-
-            if(!tmp.Read(r1, r2)) return 0;
-            if(!r2) return 0;
-
-            if(!tmp.Read(r2, r3)) return 0;
-            if(!r3) return 0;
-
-            uint64_t result = r3 + 0x3690;
-
-            // this csrss process had it :)
-            if (result > 0x7FFFFFFFFFFF)
-                return result;
-        }
-
-        return 0;
-    }
-
-    uint64_t getAsyncCursorWin11(FPGA *pFPGA) {
-        // no change for Win11- can use same routine as Win10
-        return getAsyncCursorWin10(pFPGA);
     }
 }

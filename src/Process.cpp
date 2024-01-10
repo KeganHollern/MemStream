@@ -54,7 +54,12 @@ namespace memstream {
             throw std::runtime_error("failed to initialize scatter for process");
     }
 
-    Process::~Process() = default;
+    Process::~Process() {
+        if(this->scatter) {
+            VMMDLL_Scatter_CloseHandle(this->scatter);
+            this->scatter = nullptr;
+        }
+    }
 
     bool Process::isIs64Bit() const {
         assert(this->pFPGA && "null fpga");
