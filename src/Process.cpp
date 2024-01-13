@@ -543,6 +543,14 @@ namespace memstream {
     uint64_t Process::GetExport(const std::string &moduleName, const std::string &exportName) {
         // TODO: VMMDLL_ProcessGetProcAddressU ? faster?
 
+        return VMMDLL_ProcessGetProcAddressU(
+                this->pFPGA->getVmm(),
+                this->getPid(),
+                (char*)moduleName.c_str(),
+                (char*)exportName.c_str());
+
+        // this is another way it could be done ...
+        /*
         auto exports = this->GetExports(moduleName);
         for (auto &entry: exports) {
             // case insensitive compare desired name with actual export name
@@ -554,6 +562,7 @@ namespace memstream {
             }
         }
         return 0;
+         */
     }
 
     uint64_t Process::GetImport(const std::string &moduleName, const std::string &importName) {

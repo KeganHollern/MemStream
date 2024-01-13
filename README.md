@@ -37,8 +37,8 @@ Those marked `?` I am unsure about including.
 
 - [x] Build compatibility for all MemProcFS targets
   - [x] Windows AMD64
-  - [x] Linux AMD64
-  - [x] Linux ARM64
+  - [ ] Linux AMD64
+  - [ ] Linux ARM64
 - [x] Refactor CMake projects
 - [ ] MemProcFS submodule dependency / autosymbol stuff
 - [x] Docker toolchains for build targets
@@ -62,5 +62,5 @@ Those marked `?` I am unsure about including.
   - [x] Input example
   - [ ] [ReClass.NET](https://github.com/ReClassNET/ReClass.NET) Plugin
   - [ ] Performance test example
-  - [ ] Real-world app example ?
+  - [x] Real-world app example (mono dumper)
 - [ ] rework exceptions ?

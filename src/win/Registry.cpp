@@ -33,7 +33,7 @@ namespace memstream::windows {
                 &dwSize);
         if(!ok) return false;
 
-        // copy buffer into value
+        // copy buffer into valueS
         value = (const wchar_t*)buffer;
         return true;
     }
