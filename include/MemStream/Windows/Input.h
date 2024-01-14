@@ -55,9 +55,9 @@ namespace memstream::windows {
 
         // kernel virtual address of async keystate value
         uint64_t gafAsyncKeyStateAddr;
-        uint64_t gptCursorAsync;
+        //uint64_t gptCursorAsync;
 
-        MousePoint cursorPos{0};
+        //MousePoint cursorPos{0};
         uint8_t state[64]{0};
         uint8_t prevState[64]{0};
         void(*key_callback)(int, bool) = nullptr;

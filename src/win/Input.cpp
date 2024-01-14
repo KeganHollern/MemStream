@@ -75,14 +75,15 @@ namespace memstream::windows {
             this->gafAsyncKeyStateAddr = this->winlogon->GetExport("win32kbase.sys", "gafAsyncKeyState");
         }
 
-        this->gptCursorAsync = this->winlogon->GetExport("win32kbase.sys", "gptCursorAsync");
+       // this->gptCursorAsync = this->winlogon->GetExport("win32kbase.sys", "gptCursorAsync");
 
         // failed to find one of our offsets :(
         if (this->gafAsyncKeyStateAddr <= 0x7FFFFFFFFFFF)
             throw std::runtime_error("failed to find gafAsyncKeyState");
 
-        if (this->gptCursorAsync <= 0x7FFFFFFFFFFF)
-            throw std::runtime_error("failed to find CURSOR");
+
+       // if (this->gptCursorAsync <= 0x7FFFFFFFFFFF)
+       //     throw std::runtime_error("failed to find CURSOR");
 
 
 
@@ -104,7 +105,7 @@ namespace memstream::windows {
         // scatter read these values
         std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> reads = {
                 {this->gafAsyncKeyStateAddr, (uint8_t *) &this->state,     sizeof(uint8_t[64])},
-                {this->gptCursorAsync,       (uint8_t *) &this->cursorPos, sizeof(MousePoint)},
+        //        {this->gptCursorAsync,       (uint8_t *) &this->cursorPos, sizeof(MousePoint)},
         };
 
         if (!this->winlogon->ReadMany(reads))
@@ -144,7 +145,8 @@ namespace memstream::windows {
 
 
     MousePoint Input::GetCursorPos() {
-        return this->cursorPos;
+        return {};
+       // return this->cursorPos;
     }
 
     //--- util functions for kernel interaction....
