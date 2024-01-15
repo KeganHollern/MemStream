@@ -144,7 +144,7 @@ namespace memstream::dma {
     }
 
     void Object::PushCachedBuffer(uint32_t off, uint8_t *buffer, uint32_t size, uint64_t cache_duration_ms, bool allow_zero) {
-        this->offsets[off] = {buffer, size, true, 0, cache_duration_ms};
+        this->offsets[off] = {buffer, size, true, 0, cache_duration_ms, allow_zero};
     }
 
     void Object::PushCached(uint32_t off, uint32_t size, uint64_t cache_duration_ms, bool allow_zero) {
