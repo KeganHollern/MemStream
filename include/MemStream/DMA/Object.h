@@ -37,9 +37,9 @@ namespace memstream::dma {
             // new object for process
             explicit Object(Process* process);
 
-
-            void PushCachedBuffer(uint32_t off, uint8_t* buffer, uint32_t size);
-            void PushCached(uint32_t off, uint32_t size);
+            // use `-1` for cache duration for inifinite caching
+            void PushCachedBuffer(uint32_t off, uint8_t* buffer, uint32_t size, uint64_t cache_duration_ms = 30000, bool allow_zero = true);
+            void PushCached(uint32_t off, uint32_t size, uint64_t cache_duration_ms = 30000, bool allow_zero = true);
             // void ResetCache(uint32_t off); // TODO ? how do we invalidate cache...
 
             //writes
@@ -54,8 +54,8 @@ namespace memstream::dma {
             virtual bool IsNull();
 
             void PushBuffer(uint32_t off, uint8_t* buffer, uint32_t size);
-            // push offsets into the object to be read during READ() ops ?
             void Push(uint32_t off, uint32_t size);
+
             uint32_t Size(uint32_t off);
             uint8_t* Get(uint32_t off);
 
@@ -78,13 +78,16 @@ namespace memstream::dma {
                 return true;
             }
 
+            // TODO: invalidate all offsets on base change ?!
             uint64_t base;
         protected:
             struct offset {
                 uint8_t* buffer;
                 uint32_t size;
                 bool cache;
-                ULONGLONG last_cache;
+                uint64_t last_cache;
+                uint64_t cache_duration;
+                bool allow_zero_cache;
             };
 
             std::unordered_map<uint32_t, offset> offsets{};

@@ -80,14 +80,29 @@ namespace memstream::dma {
             if (!buffer) continue;
             if (size == 0) continue;
 
-            // caching means we only actually read this value (stage it)
-            // once every 30s
             if(value.cache) {
+                // CACHING
                 auto current_tick = GetTickCount64();
-                if((current_tick - value.last_cache) <= (30*1000))
-                    continue;
-                else
-                    value.last_cache = current_tick;
+                if(value.cache_duration == -1) {
+                    // NO RECACHING
+                    if(value.allow_zero_cache && value.last_cache != 0)
+                        continue; // ALREADY CACHED ONCE
+
+                    bool is_zero = true;
+                    for(int i = 0; i < size; i++) {
+                        if(buffer[i]) { is_zero = false; break; }
+                    }
+                    if(!is_zero)
+                        continue; // ALREADY CACHED NONZERO VALUE
+                } else {
+                    // RECACHING ENABLED
+                    if ((current_tick - value.last_cache) <= value.cache_duration)
+                        continue; // NOT TIME TO RECACHE
+                }
+
+                // if we made it here we're recaching (or caching) and thus
+                // need to update last_cache
+                value.last_cache = current_tick;
             }
 
             this->proc->StageRead(
@@ -107,7 +122,7 @@ namespace memstream::dma {
 
     // push an offset to this object structure & store its read data at the buffer
     void Object::PushBuffer(uint32_t off, uint8_t *buffer, uint32_t size) {
-        this->offsets[off] = {buffer, size, false, 0};
+        this->offsets[off] = {buffer, size, false, 0, 0};
     }
 
     // get the read value from the object structure
@@ -128,15 +143,15 @@ namespace memstream::dma {
         return 0;
     }
 
-    void Object::PushCachedBuffer(uint32_t off, uint8_t *buffer, uint32_t size) {
-        this->offsets[off] = {buffer, size, true, 0};
+    void Object::PushCachedBuffer(uint32_t off, uint8_t *buffer, uint32_t size, uint64_t cache_duration_ms, bool allow_zero) {
+        this->offsets[off] = {buffer, size, true, 0, cache_duration_ms};
     }
 
-    void Object::PushCached(uint32_t off, uint32_t size) {
+    void Object::PushCached(uint32_t off, uint32_t size, uint64_t cache_duration_ms, bool allow_zero) {
         uint8_t* buffer = new uint8_t[size];
         memset(buffer, 0, size);
 
-        this->PushCachedBuffer(off, buffer, size);
+        this->PushCachedBuffer(off, buffer, size, cache_duration_ms, allow_zero);
     }
 
 } // dma
