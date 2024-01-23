@@ -63,6 +63,9 @@ namespace memstream::windows {
         void(*key_callback)(int, bool) = nullptr;
     };
 
+
+
+    Process* getUserSessionKernelProcess(FPGA* pFPGA);
 }
 
 #endif //MEMSTREAM_INPUT_H

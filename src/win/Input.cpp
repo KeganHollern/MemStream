@@ -25,17 +25,21 @@ namespace memstream::windows {
             throw std::invalid_argument("null fpga");
 
         uint32_t version = getWindowsVersion(pFPGA);
+        //TODO: fix
         // some errors on win10 cause this shit to b wrong ?!
-        //if(version == 0)
-       //     throw std::runtime_error("failed to detect windows version");
+        //      if(version == 0)
+        //          throw std::runtime_error("failed to detect windows version");
 
         // --- create winlogon process w/ kernel memory access :)
 
-        DWORD pid = 0;
-        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char*)"winlogon.exe", &pid))
-            throw std::runtime_error("failed to find winlogon");
+        this->winlogon = getUserSessionKernelProcess(pFPGA);
+        if(!this->winlogon) {
+            DWORD pid = 0;
+            if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) "winlogon.exe", &pid))
+                throw std::runtime_error("failed to find winlogon");
 
-        this->winlogon = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
+            this->winlogon = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
+        }
 
         // depending on win version (10 vs 11) grab keyboard state...
         if (version > 22000) {
@@ -165,5 +169,25 @@ namespace memstream::windows {
         if (!ok) return 0;
 
         return std::stoi(version);
+    }
+
+    Process *windows::getUserSessionKernelProcess(FPGA *pFPGA) {
+        auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
+        auto winlogon = pFPGA->GetAllProcessesByName("winlogon.exe");
+
+        pids.insert(pids.end(), winlogon.begin(), winlogon.end());
+
+        Process* result = nullptr;
+        for(const auto& pid : pids) {
+            result = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
+            // check if we can find gptCursorAsync...
+            if(result->GetExport("win32kbase.sys", "gptCursorAsync")) {
+                return result;
+            }
+            delete result;
+            result = nullptr;
+        }
+
+        return nullptr;
     }
 }
