@@ -68,6 +68,8 @@ int main() {
         Input in;
         in.OnKeyStateChange(key_event);
 
+        std::cout << "Attached to: " << in.GetKernelProcess()->getName() << " #" << std::dec << in.GetKernelProcess()->getPid() << std::endl;
+
         while(true) {
             // read input from windows kernel
             if(!in.Update()) {

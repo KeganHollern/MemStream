@@ -128,11 +128,14 @@ namespace memstream {
         bool isIs64Bit() const;
 
         uint32_t getPid() const;
+        const char* getName() const;
 
     protected:
         VMMDLL_PROCESS_INFORMATION info;
         VMMDLL_SCATTER_HANDLE scatter;
         FPGA *pFPGA;
+
+        uint32_t pid{};
 
 
         std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> stagedReads;

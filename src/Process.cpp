@@ -22,6 +22,7 @@ namespace memstream {
             throw std::runtime_error("failed to get process info");
 
         this->pFPGA = pFPGA;
+        this->pid = pid;
 
         this->scatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
@@ -50,6 +51,7 @@ namespace memstream {
         if (!pFPGA->GetProcessInfo(foundPid, this->info))
             throw std::runtime_error("failed to get process info");
 
+        this->pid = foundPid;
         this->pFPGA = pFPGA;
 
         this->scatter = VMMDLL_Scatter_Initialize(
@@ -76,7 +78,7 @@ namespace memstream {
     uint32_t Process::getPid() const {
         assert(this->pFPGA && "null fpga");
 
-        return this->info.dwPID;
+        return this->pid;
     }
 
     void Process::StageRead(uint64_t addr, uint8_t *buffer, uint32_t size) {
@@ -583,6 +585,10 @@ namespace memstream {
             }
         }
         return 0;
+    }
+
+    const char *Process::getName() const {
+        return this->info.szNameLong;
     }
 
 

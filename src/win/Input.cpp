@@ -2,6 +2,7 @@
 #include <cassert>
 #include <stdexcept>
 #include <cstring>
+#include <print>
 
 #include <vmmdll.h>
 
@@ -33,13 +34,9 @@ namespace memstream::windows {
         // --- create winlogon process w/ kernel memory access :)
 
         this->winlogon = getUserSessionKernelProcess(pFPGA);
-        if(!this->winlogon) {
-            DWORD pid = 0;
-            if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char *) "winlogon.exe", &pid))
-                throw std::runtime_error("failed to find winlogon");
+        if(!this->winlogon)
+            throw std::runtime_error("could not find kernel session process");
 
-            this->winlogon = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
-        }
 
         // depending on win version (10 vs 11) grab keyboard state...
         if (version > 22000) {
@@ -80,15 +77,13 @@ namespace memstream::windows {
             this->gafAsyncKeyStateAddr = this->winlogon->GetExport("win32kbase.sys", "gafAsyncKeyState");
         }
 
-       // this->gptCursorAsync = this->winlogon->GetExport("win32kbase.sys", "gptCursorAsync");
+        this->gptCursorAsync = this->winlogon->GetExport("win32kbase.sys", "gptCursorAsync");
 
-        // failed to find one of our offsets :(
         if (this->gafAsyncKeyStateAddr <= 0x7FFFFFFFFFFF)
             throw std::runtime_error("failed to find gafAsyncKeyState");
 
-
-       // if (this->gptCursorAsync <= 0x7FFFFFFFFFFF)
-       //     throw std::runtime_error("failed to find CURSOR");
+        if (this->gptCursorAsync <= 0x7FFFFFFFFFFF)
+            throw std::runtime_error("failed to find CURSOR");
 
 
 
@@ -110,7 +105,7 @@ namespace memstream::windows {
         // scatter read these values
         std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> reads = {
                 {this->gafAsyncKeyStateAddr, (uint8_t *) &this->state,     sizeof(uint8_t[64])},
-        //        {this->gptCursorAsync,       (uint8_t *) &this->cursorPos, sizeof(MousePoint)},
+                {this->gptCursorAsync,       (uint8_t *) &this->cursorPos, sizeof(MousePoint)},
         };
 
         if (!this->winlogon->ReadMany(reads))
@@ -137,21 +132,17 @@ namespace memstream::windows {
         return this->prevState[(vk * 2 / 8)] & 1 << vk % 4 * 2;
     }
 
-    bool Input::OnPress(uint32_t vk) {
-        return this->IsKeyDown(vk) && !this->WasKeyDown(vk);
-    }
-    bool Input::OnRelease(uint32_t vk) {
-        return this->WasKeyDown(vk) && !this->IsKeyDown(vk);
-    }
-
     void Input::OnKeyStateChange(void(*callback)(int, bool)) {
         this->key_callback = callback;
     }
 
 
     MousePoint Input::GetCursorPos() {
-        return {};
-       // return this->cursorPos;
+        return this->cursorPos;
+    }
+
+    Process *Input::GetKernelProcess() {
+        return this->winlogon;
     }
 
     //--- util functions for kernel interaction....
@@ -172,18 +163,32 @@ namespace memstream::windows {
     }
 
     Process *windows::getUserSessionKernelProcess(FPGA *pFPGA) {
-        auto pids = pFPGA->GetAllProcessesByName("csrss.exe");
-        auto winlogon = pFPGA->GetAllProcessesByName("winlogon.exe");
+        auto pids = pFPGA->GetAllProcessesByName("winlogon.exe");
+        auto backup_procs = pFPGA->GetAllProcessesByName("csrss.exe");
 
-        pids.insert(pids.end(), winlogon.begin(), winlogon.end());
+        pids.insert(pids.end(), backup_procs.begin(), backup_procs.end());
+
+        bool win11 = getWindowsVersion(pFPGA) > 22000;
 
         Process* result = nullptr;
         for(const auto& pid : pids) {
             result = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
-            // check if we can find gptCursorAsync...
-            if(result->GetExport("win32kbase.sys", "gptCursorAsync")) {
-                return result;
+
+            std::printf("process: %s #%d\n", result->getName(), result->getPid());
+            for(const auto& module : result->GetModules()) {
+                std::printf("\tmodule: %s", module.uszFullName);
             }
+
+            // try to find cursor async...
+            if(result->GetModuleBase("win32kbase.sys")) { // win10 and win11 need this
+                if(!win11 || result->GetModuleBase("win32ksgd.sys")) { // if on win11 we need to find win32ksgd.sys
+                    if (result->GetExport("win32kbase.sys", "gptCursorAsync")) { // we need to find this export...
+                        return result;
+                    }
+                }
+            }
+
+
             delete result;
             result = nullptr;
         }
