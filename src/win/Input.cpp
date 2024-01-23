@@ -174,6 +174,7 @@ namespace memstream::windows {
             result = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
 
             // try to find cursor async...
+            //TODO: find a better way to do this bcz it returns invalid csrss.exe source
             if(result->GetModuleBase("win32kbase.sys")) { // win10 and win11 need this
                 if(!win11 || result->GetModuleBase("win32ksgd.sys")) { // if on win11 we need to find win32ksgd.sys
                     if (result->GetExport("win32kbase.sys", "gptCursorAsync")) { // we need to find this export...
