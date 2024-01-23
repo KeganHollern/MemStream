@@ -25,13 +25,14 @@ namespace memstream::windows {
             throw std::invalid_argument("null fpga");
 
         uint32_t version = getWindowsVersion(pFPGA);
-        if(version == 0)
-            throw std::runtime_error("failed to detect windows version");
+        // some errors on win10 cause this shit to b wrong ?!
+        //if(version == 0)
+       //     throw std::runtime_error("failed to detect windows version");
 
         // --- create winlogon process w/ kernel memory access :)
 
         DWORD pid = 0;
-        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), "winlogon.exe", &pid))
+        if (!VMMDLL_PidGetFromName(pFPGA->getVmm(), (char*)"winlogon.exe", &pid))
             throw std::runtime_error("failed to find winlogon");
 
         this->winlogon = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
