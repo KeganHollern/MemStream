@@ -2,7 +2,6 @@
 #include <cassert>
 #include <stdexcept>
 #include <cstring>
-#include <print>
 
 #include <vmmdll.h>
 
@@ -173,11 +172,6 @@ namespace memstream::windows {
         Process* result = nullptr;
         for(const auto& pid : pids) {
             result = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
-
-            std::printf("process: %s #%d\n", result->getName(), result->getPid());
-            for(const auto& module : result->GetModules()) {
-                std::printf("\tmodule: %s", module.uszFullName);
-            }
 
             // try to find cursor async...
             if(result->GetModuleBase("win32kbase.sys")) { // win10 and win11 need this
