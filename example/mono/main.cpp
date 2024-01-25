@@ -16,7 +16,6 @@
 #include <MemStream/Process.h>
 #include <MemStream/Utils.h>
 #include <MemStream/Windows/Input.h>
-#include <MemStream/Windows/Registry.h>
 
 using namespace memstream;
 using namespace memstream::windows;

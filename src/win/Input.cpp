@@ -7,39 +7,28 @@
 
 #include "MemStream/FPGA.h"
 #include "MemStream/Process.h"
-#include "MemStream/Windows/Registry.h"
 #include "MemStream/Windows/Input.h"
 
 
 namespace memstream::windows {
-    // forward declares of helpers...
-    uint64_t getAsyncKeystateWin11(FPGA *pFPGA);
-    uint64_t getAsyncKeystateWin10(FPGA *pFPGA);
-    uint32_t getWindowsVersion(FPGA *pFPGA);
-    uint64_t getAsyncCursor(FPGA *pFPGA);
-
     Input::Input() : Input(GetDefaultFPGA()) {}
 
     Input::Input(FPGA *pFPGA) {
         if (!pFPGA)
             throw std::invalid_argument("null fpga");
 
-        uint32_t version = getWindowsVersion(pFPGA);
-        //TODO: fix
-        // some errors on win10 cause this shit to b wrong ?!
-        //      if(version == 0)
-        //          throw std::runtime_error("failed to detect windows version");
-
-        // --- create winlogon process w/ kernel memory access :)
-
-        this->winlogon = getUserSessionKernelProcess(pFPGA);
-        if(!this->winlogon)
+        this->kernel = getUserSessionKernelProcess(pFPGA);
+        if(!this->kernel)
             throw std::runtime_error("could not find kernel session process");
 
+        // windows 10 exports these...
+        this->gafAsyncKeyStateAddr = this->kernel->GetExport("win32kbase.sys", "gafAsyncKeyState");
+        this->gptCursorAsync = this->kernel->GetExport("win32kbase.sys", "gptCursorAsync");
 
-        // depending on win version (10 vs 11) grab keyboard state...
-        if (version > 22000) {
-            uint64_t base = this->winlogon->GetModuleBase("win32ksgd.sys");
+        if (!this->gafAsyncKeyStateAddr) {
+            // probably windows 11 -- need to pull from win32ksgd.sys
+
+            uint64_t base = this->kernel->GetModuleBase("win32ksgd.sys");
 
             if (!base)
                 throw std::runtime_error("could not find win32ksgd.sys");
@@ -47,14 +36,14 @@ namespace memstream::windows {
             uint64_t addr = base + 0x3110;
             uint64_t r1, r2, r3 = 0;
 
-            if(!this->winlogon->Read(addr, r1))
+            if(!this->kernel->Read(addr, r1))
                 throw std::runtime_error("failed to read win32ksgd.sys");
 
             if(!r1)
                 throw std::runtime_error("failed to read r1 in win32ksgd.sys");
 
             for(int i = 0; i < 4; i++) {
-                if(!this->winlogon->Read(r1 + (i * 8), r2))
+                if(!this->kernel->Read(r1 + (i * 8), r2))
                     throw std::runtime_error("failed to read win32ksgd.sys");
 
                 if(r2) break;
@@ -63,7 +52,7 @@ namespace memstream::windows {
             if(!r2)
                 throw std::runtime_error("failed to read r2 in win32ksgd.sys");
 
-            if(!this->winlogon->Read(r2, r3))
+            if(!this->kernel->Read(r2, r3))
                 throw std::runtime_error("failed to read win32ksgd.sys");
 
             if(!r3)
@@ -72,25 +61,18 @@ namespace memstream::windows {
             uint64_t result = r3 + 0x3690;
 
             this->gafAsyncKeyStateAddr = result;
-        } else {
-            this->gafAsyncKeyStateAddr = this->winlogon->GetExport("win32kbase.sys", "gafAsyncKeyState");
         }
 
-        this->gptCursorAsync = this->winlogon->GetExport("win32kbase.sys", "gptCursorAsync");
-
-        if (this->gafAsyncKeyStateAddr <= 0x7FFFFFFFFFFF)
+        if (!this->gafAsyncKeyStateAddr)
             throw std::runtime_error("failed to find gafAsyncKeyState");
 
-        if (this->gptCursorAsync <= 0x7FFFFFFFFFFF)
+        if (!this->gptCursorAsync)
             throw std::runtime_error("failed to find CURSOR");
-
-
-
     }
 
     Input::~Input() {
         assert(this->winlogon && "no winlogon process");
-        delete this->winlogon;
+        delete this->kernel;
     }
 
     bool Input::Update() {
@@ -107,7 +89,7 @@ namespace memstream::windows {
                 {this->gptCursorAsync,       (uint8_t *) &this->cursorPos, sizeof(MousePoint)},
         };
 
-        if (!this->winlogon->ReadMany(reads))
+        if (!this->kernel->ReadMany(reads))
             return false;
 
         // at this point we have the current keyboard state in this->state and the last in this->prevState
@@ -141,53 +123,28 @@ namespace memstream::windows {
     }
 
     Process *Input::GetKernelProcess() {
-        return this->winlogon;
+        return this->kernel;
     }
 
-    //--- util functions for kernel interaction....
+    Process* getUserSessionKernelProcess(FPGA *pFPGA) {
+        uint32_t kernel_process_pid = 0;
 
-    uint32_t getWindowsVersion(FPGA *pFPGA) {
-        if (!pFPGA) return 0;
-
-        // rip target version from registry
-        std::wstring version;
-        Registry reg(pFPGA);
-        bool ok = reg.Query(
-                "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\CurrentBuild",
-                RegistryType::sz,
-                version);
-        if (!ok) return 0;
-
-        return std::stoi(version);
-    }
-
-    Process *windows::getUserSessionKernelProcess(FPGA *pFPGA) {
-        auto pids = pFPGA->GetAllProcessesByName("winlogon.exe");
-        auto backup_procs = pFPGA->GetAllProcessesByName("csrss.exe");
-
-        pids.insert(pids.end(), backup_procs.begin(), backup_procs.end());
-
-        bool win11 = getWindowsVersion(pFPGA) > 22000;
-
-        Process* result = nullptr;
-        for(const auto& pid : pids) {
-            result = new Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
-
-            // try to find cursor async...
-            //TODO: find a better way to do this bcz it returns invalid csrss.exe source
-            if(result->GetModuleBase("win32kbase.sys")) { // win10 and win11 need this
-                if(!win11 || result->GetModuleBase("win32ksgd.sys")) { // if on win11 we need to find win32ksgd.sys
-                    if (result->GetExport("win32kbase.sys", "gptCursorAsync")) { // we need to find this export...
-                        return result;
-                    }
-                }
+        auto winlogon = pFPGA->GetAllProcessesByName("winlogon.exe");
+        if(winlogon.size() == 1) {
+            kernel_process_pid = winlogon[0];
+        } else {
+            // multiple winlogon procs... weird lets try csrss[1]
+            auto csrss = pFPGA->GetAllProcessesByName("csrss.exe");
+            if(csrss.size() >= 2) {
+                kernel_process_pid = csrss[1];
             }
-
-
-            delete result;
-            result = nullptr;
         }
 
-        return nullptr;
+        // unable to find kernel process...
+        if(kernel_process_pid == 0)
+            return nullptr;
+
+        auto kernel = new Process(pFPGA, kernel_process_pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
+        return kernel;
     }
 }

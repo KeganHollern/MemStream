@@ -51,7 +51,7 @@ namespace memstream::windows {
 
         MousePoint GetCursorPos();
     private:
-        Process *winlogon;
+        Process *kernel;
 
         // kernel virtual address of async keystate value
         uint64_t gafAsyncKeyStateAddr;

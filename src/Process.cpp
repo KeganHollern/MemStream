@@ -28,6 +28,7 @@ namespace memstream {
                 this->pFPGA->getVmm(),
                 this->getPid(),
                 VMM_READ_FLAGS);
+
         if (!this->scatter)
             throw std::runtime_error("failed to initialize scatter for process");
     }

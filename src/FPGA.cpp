@@ -107,13 +107,14 @@ namespace memstream {
 
         PDWORD pdwPIDs;
         SIZE_T cPIDs = 0;
-        if (!VMMDLL_PidList(this->vmm, nullptr, &cPIDs)) return results;
-
-        // we use alloca to store tmp data on stack for perf
-        pdwPIDs = (PDWORD) alloca(cPIDs * sizeof(DWORD));
-        memset(pdwPIDs, 0, cPIDs * sizeof(DWORD));
-        if (!VMMDLL_PidList(this->vmm, pdwPIDs, &cPIDs))
+        if (!VMMDLL_PidList(this->vmm, nullptr, &cPIDs))
             return results;
+
+        pdwPIDs = new DWORD[cPIDs]();
+        if (!VMMDLL_PidList(this->vmm, pdwPIDs, &cPIDs)) {
+            delete[] pdwPIDs;
+            return results;
+        }
 
         for (SIZE_T i = 0; i < cPIDs; i++) {
             DWORD dwPid = pdwPIDs[i];
@@ -125,13 +126,16 @@ namespace memstream {
 
             // case-insensitive name check
             std::string procName(info.szNameLong);
-            if (std::equal(name.begin(), name.end(), procName.begin(), [](char a, char b) {
+
+
+            if (procName.size() == name.size() && std::equal(name.begin(), name.end(), procName.begin(), [](char a, char b) {
                 return std::tolower(a) == std::tolower(b);
             })) {
                 results.push_back(dwPid);
             }
         }
 
+        delete[] pdwPIDs;
         return results;
     }
 

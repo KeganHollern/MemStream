@@ -83,6 +83,13 @@ namespace memstream::dma {
             if(value.cache) {
                 // CACHING
                 auto current_tick = GetTickCount64();
+
+                // TEMPORARY
+                // infinite caching becomes 10s invalidated caching... for debugging
+                // TODO: remove
+                if(value.cache_duration == -1)
+                    value.cache_duration = 10*1000;
+
                 if(value.cache_duration == -1) {
                     // NO RECACHING
                     if(value.allow_zero_cache && value.last_cache != 0)
