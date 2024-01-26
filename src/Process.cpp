@@ -1,4 +1,3 @@
-#include <cassert>
 #include <sstream>
 #include <string>
 #include <cstring>
@@ -71,14 +70,10 @@ namespace memstream {
     }
 
     bool Process::isIs64Bit() const {
-        assert(this->pFPGA && "null fpga");
-
         return this->info.tpMemoryModel == VMMDLL_MEMORYMODEL_X64;
     }
 
     uint32_t Process::getPid() const {
-        assert(this->pFPGA && "null fpga");
-
         return this->pid;
     }
 
@@ -99,9 +94,6 @@ namespace memstream {
     }
 
     bool Process::Read(uint64_t addr, uint8_t *buffer, uint32_t size) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         if (!addr) return false;
         if (!buffer) return false;
         if (!size) return false;
@@ -118,9 +110,6 @@ namespace memstream {
     }
 
     bool Process::ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         // initialize a scatter
         if(!this->scatter) {
             auto new_scatter = VMMDLL_Scatter_Initialize(
@@ -174,9 +163,6 @@ namespace memstream {
     }
 
     bool Process::Write(uint64_t addr, uint8_t *buffer, uint32_t size) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         if (!addr) return false;
         if (!buffer) return false;
         if (!size) return false;
@@ -200,10 +186,6 @@ namespace memstream {
     }
 
     bool Process::WriteMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &writeOps) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
-
         // reinit VMM scatter
         if(!this->scatter) {
             this->scatter = VMMDLL_Scatter_Initialize(
@@ -285,8 +267,6 @@ namespace memstream {
         for (int i = 0; i < len - search.size(); i++) {
             bool found = true;
             for (int j = 0; j < search.size(); j++) {
-                assert(i + j < len && "invalid pattern search range");
-
                 auto &entry = search[j];
 
                 if (!std::get<1>(entry)) continue; // wildcard
@@ -307,9 +287,6 @@ namespace memstream {
     }
 
     uint64_t Process::GetModuleBase(const std::string &name) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         return VMMDLL_ProcessGetModuleBaseU(
                 this->pFPGA->getVmm(),
                 this->getPid(),
@@ -317,9 +294,6 @@ namespace memstream {
     }
 
     bool Process::GetModuleInfo(const std::string &name, VMMDLL_MAP_MODULEENTRY &entry) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         // reading will alloc a ptr we need to free
         PVMMDLL_MAP_MODULEENTRY pModuleMapEntry;
         bool ok = VMMDLL_Map_GetModuleFromNameU(
@@ -341,9 +315,6 @@ namespace memstream {
     }
 
     std::vector<VMMDLL_MAP_MODULEENTRY> Process::GetModules() {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         std::vector<VMMDLL_MAP_MODULEENTRY> results;
 
         PVMMDLL_MAP_MODULE pModuleMap = nullptr;
@@ -368,19 +339,12 @@ namespace memstream {
     }
 
     bool Process::Dump(const std::string& path) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
-        assert(false && "todo impl");
         return false;
     }
 
     // TODO: move some of these windows specific fncs into a WinProcess child class?
 
     uint64_t Process::Cave(const std::string& moduleName, uint32_t size) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         const uint32_t pad = 0x10; // cave padding
 
         // CANNOT find caves larger than an entire page!
@@ -458,9 +422,6 @@ namespace memstream {
     }
 
     std::vector<VMMDLL_MAP_EATENTRY> Process::GetExports(const std::string &name) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         std::vector<VMMDLL_MAP_EATENTRY> results;
 
         PVMMDLL_MAP_EAT pEAT = nullptr;
@@ -489,9 +450,6 @@ namespace memstream {
     }
 
     std::vector<VMMDLL_MAP_IATENTRY> Process::GetImports(const std::string &name) {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         std::vector<VMMDLL_MAP_IATENTRY> results;
 
         PVMMDLL_MAP_IAT pIAT = nullptr;
@@ -520,9 +478,6 @@ namespace memstream {
     }
 
     std::vector<VMMDLL_MAP_THREADENTRY> Process::GetThreads() {
-        assert(this->pFPGA && "null fpga");
-        assert(this->getPid() && "null pid");
-
         std::vector<VMMDLL_MAP_THREADENTRY> results;
 
         PVMMDLL_MAP_THREAD pThreads = nullptr;
@@ -552,28 +507,11 @@ namespace memstream {
     }
 
     uint64_t Process::GetExport(const std::string &moduleName, const std::string &exportName) {
-        // TODO: VMMDLL_ProcessGetProcAddressU ? faster?
-
         return VMMDLL_ProcessGetProcAddressU(
                 this->pFPGA->getVmm(),
                 this->getPid(),
                 (char*)moduleName.c_str(),
                 (char*)exportName.c_str());
-
-        // this is another way it could be done ...
-        /*
-        auto exports = this->GetExports(moduleName);
-        for (auto &entry: exports) {
-            // case insensitive compare desired name with actual export name
-            std::string funcName(entry.uszFunction);
-            if (std::equal(exportName.begin(), exportName.end(), funcName.begin(), [](char a, char b) {
-                return std::tolower(a) == std::tolower(b);
-            })) {
-                return entry.vaFunction;
-            }
-        }
-        return 0;
-         */
     }
 
     uint64_t Process::GetImport(const std::string &moduleName, const std::string &importName) {
@@ -581,7 +519,7 @@ namespace memstream {
         for (auto &entry: imports) {
             // case insensitive compare desired name with actual export name
             std::string funcName(entry.uszFunction);
-            if (std::equal(importName.begin(), importName.end(), funcName.begin(), [](char a, char b) {
+            if (importName.size() == funcName.size() && std::equal(importName.begin(), importName.end(), funcName.begin(), [](char a, char b) {
                 return std::tolower(a) == std::tolower(b);
             })) {
                 return entry.vaFunction;

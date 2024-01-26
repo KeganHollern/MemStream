@@ -1,7 +1,3 @@
-//
-// Created by Kegan Hollern on 12/27/23.
-//
-
 #ifndef MEMSTREAM_OBJECT_H
 #define MEMSTREAM_OBJECT_H
 
@@ -79,7 +75,7 @@ namespace memstream::dma {
             }
 
             // TODO: invalidate all offsets on base change ?!
-            uint64_t base;
+            uint64_t base{};
         protected:
             struct offset {
                 uint8_t* buffer;

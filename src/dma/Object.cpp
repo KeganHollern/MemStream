@@ -1,5 +1,4 @@
 #include <stdexcept>
-#include <cassert>
 
 #include "MemStream/DMA/Object.h"
 
@@ -18,8 +17,6 @@ namespace memstream::dma {
     }
 
     bool Object::Read() {
-        assert(this->proc && "null proc");
-
         if(this->IsNull()) return true;
         if (this->offsets.empty()) return true;
 
@@ -29,8 +26,6 @@ namespace memstream::dma {
 
 
     bool Object::Write() {
-        assert(this->proc && "null proc");
-
         if(this->IsNull()) return true;
         if (this->offsets.empty()) return true;
 
@@ -38,8 +33,6 @@ namespace memstream::dma {
         return this->proc->ExecuteStagedWrites(); // read
     }
     void Object::StageWrite() {
-        assert(this->proc && "null proc");
-
         // can't read if null...
         if(this->IsNull()) return;
         if(this->offsets.empty()) return;
@@ -63,8 +56,6 @@ namespace memstream::dma {
 
 
     void Object::StageRead() {
-        assert(this->proc && "null proc");
-
         // can't read if null...
         if(this->IsNull()) return;
 
@@ -83,12 +74,6 @@ namespace memstream::dma {
             if(value.cache) {
                 // CACHING
                 auto current_tick = GetTickCount64();
-
-                // TEMPORARY
-                // infinite caching becomes 10s invalidated caching... for debugging
-                // TODO: remove
-                if(value.cache_duration == -1)
-                    value.cache_duration = 10*1000;
 
                 if(value.cache_duration == -1) {
                     // NO RECACHING
@@ -128,7 +113,15 @@ namespace memstream::dma {
 
     // push an offset to this object structure & store its read data at the buffer
     void Object::PushBuffer(uint32_t off, uint8_t *buffer, uint32_t size) {
-        this->offsets[off] = {buffer, size, false, 0, 0};
+        offset value = {
+                .buffer = buffer,
+                .size = size,
+                .cache = false,
+                .last_cache = 0,
+                .cache_duration = 0,
+                .allow_zero_cache = false,
+        };
+        this->offsets[off] = value;
     }
 
     // get the read value from the object structure
@@ -150,7 +143,21 @@ namespace memstream::dma {
     }
 
     void Object::PushCachedBuffer(uint32_t off, uint8_t *buffer, uint32_t size, uint64_t cache_duration_ms, bool allow_zero) {
-        this->offsets[off] = {buffer, size, true, 0, cache_duration_ms, allow_zero};
+        // TODO: remove
+        // TEMPORARY FIX
+        if(cache_duration_ms == -1)
+            cache_duration_ms = 10*1000;
+
+        offset value = {
+                .buffer = buffer,
+                .size = size,
+                .cache = true,
+                .last_cache = 0,
+                .cache_duration = cache_duration_ms,
+                .allow_zero_cache = false,
+        };
+
+        this->offsets[off] = value;
     }
 
     void Object::PushCached(uint32_t off, uint32_t size, uint64_t cache_duration_ms, bool allow_zero) {
