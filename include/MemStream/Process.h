@@ -53,7 +53,7 @@ namespace memstream {
 
         template<typename T>
         inline bool Read(uint64_t addr, T &value) {
-            return Read(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
+            return Read(addr, (uint8_t*)(&value), sizeof(T));
         }
 
 

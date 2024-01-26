@@ -106,13 +106,14 @@ namespace memstream {
         if (!buffer) return false;
         if (!size) return false;
 
+        DWORD read = 0;
         return VMMDLL_MemReadEx(
                 this->pFPGA->getVmm(),
                 this->getPid(),
                 addr,
                 buffer,
                 size,
-                nullptr,
+                &read,
                 VMM_READ_FLAGS);
     }
 
@@ -126,6 +127,7 @@ namespace memstream {
                     this->pFPGA->getVmm(),
                     this->getPid(),
                     VMM_READ_FLAGS);
+
             if (!new_scatter) return false;
             this->scatter = new_scatter;
         }
