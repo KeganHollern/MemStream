@@ -12,7 +12,6 @@
 
 namespace memstream::windows {
     Input::Input() : Input(GetDefaultFPGA()) {}
-
     Input::Input(FPGA *pFPGA) {
         if (!pFPGA)
             throw std::invalid_argument("null fpga");

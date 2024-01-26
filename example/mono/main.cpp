@@ -194,7 +194,7 @@ public:
         buffer[sizeof(buffer)-1] = 0; // ensure null termination
 
         if((uint8_t)buffer[0] == 0xEE) { // if unicode...
-            char name_buff[ 32 ];
+            char name_buff[ 32 ] = {0};
             sprintf_s( name_buff, 32, "\\u%04X", utf8_to_utf16( const_cast<char*>( buffer ) ) );
             return name_buff;
         }

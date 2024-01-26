@@ -275,7 +275,7 @@ namespace memstream {
 
         uint32_t len = stop - start;
 
-        auto buffer = new uint8_t[len];
+        auto buffer = new uint8_t[len]();
         if (!this->Read(start, buffer, len))
             return 0;
 

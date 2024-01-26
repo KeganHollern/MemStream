@@ -121,8 +121,7 @@ namespace memstream::dma {
 
     // push an offset to this object structure
     void Object::Push(uint32_t off, uint32_t size) {
-        uint8_t* buffer = new uint8_t[size];
-        memset(buffer, 0, size);
+        auto buffer = new uint8_t[size]();
 
         this->PushBuffer(off, buffer, size);
     }
@@ -155,8 +154,7 @@ namespace memstream::dma {
     }
 
     void Object::PushCached(uint32_t off, uint32_t size, uint64_t cache_duration_ms, bool allow_zero) {
-        uint8_t* buffer = new uint8_t[size];
-        memset(buffer, 0, size);
+        auto buffer = new uint8_t[size]();
 
         this->PushCachedBuffer(off, buffer, size, cache_duration_ms, allow_zero);
     }
