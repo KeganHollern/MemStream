@@ -113,14 +113,14 @@ namespace memstream::dma {
 
     // push an offset to this object structure & store its read data at the buffer
     void Object::PushBuffer(uint32_t off, uint8_t *buffer, uint32_t size) {
-        offset value = {
-                .buffer = buffer,
-                .size = size,
-                .cache = false,
-                .last_cache = 0,
-                .cache_duration = 0,
-                .allow_zero_cache = false,
-        };
+        offset value{};
+        value.buffer = buffer;
+        value.size = size;
+        value.cache = false;
+        value.last_cache = 0;
+        value.cache_duration = 0;
+        value.allow_zero_cache = false;
+
         this->offsets[off] = value;
     }
 
@@ -148,14 +148,13 @@ namespace memstream::dma {
         if(cache_duration_ms == -1)
             cache_duration_ms = 10*1000;
 
-        offset value = {
-                .buffer = buffer,
-                .size = size,
-                .cache = true,
-                .last_cache = 0,
-                .cache_duration = cache_duration_ms,
-                .allow_zero_cache = false,
-        };
+        offset value{};
+        value.buffer = buffer;
+        value.size = size;
+        value.cache = true;
+        value.last_cache = 0;
+        value.cache_duration = cache_duration_ms;
+        value.allow_zero_cache = false;// TODO: hook this up to allow_zero
 
         this->offsets[off] = value;
     }
