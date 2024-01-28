@@ -146,7 +146,7 @@ namespace memstream::dma {
         // TODO: remove
         // TEMPORARY FIX
         if(cache_duration_ms == -1)
-            cache_duration_ms = 10*1000;
+            cache_duration_ms = 60*1000;
 
         offset value{};
         value.buffer = buffer;
