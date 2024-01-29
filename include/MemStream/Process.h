@@ -61,7 +61,7 @@ namespace memstream {
 
         template<typename T>
         inline void StageRead(uint64_t addr, T &value) {
-            StageRead(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
+            StageRead(addr, (uint8_t *)(&value), sizeof(T));
         }
 
          bool ExecuteStagedReads();
@@ -74,7 +74,7 @@ namespace memstream {
 
         template<typename T>
         inline bool Write(uint64_t addr, T &value) {
-            return Write(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
+            return Write(addr, (uint8_t *)(&value), sizeof(T));
         }
 
 
@@ -82,7 +82,7 @@ namespace memstream {
 
         template<typename T>
         inline void StageWrite(uint64_t addr, T &value) {
-            StageWrite(addr, reinterpret_cast<uint8_t *>(&value), sizeof(T));
+            StageWrite(addr, (uint8_t *)(&value), sizeof(T));
         }
 
          bool ExecuteStagedWrites();
