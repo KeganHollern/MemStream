@@ -1,4 +1,3 @@
-#include <cassert>
 #include <vector>
 #include <cstring>
 #include <algorithm>
@@ -20,7 +19,6 @@ namespace memstream {
     FPGA *GetDefaultFPGA() {
         if (!gDevice) {
             gDevice = new FPGA();
-            assert(gDevice);
         }
         return gDevice;
     }
@@ -35,14 +33,62 @@ namespace memstream {
         if (!this->vmm)
             throw std::runtime_error("failed to initialize device");
 
+        // NOTE: only LC_OPT* can be acquired via VMMDLL_ConfigGet
         if (!VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_FPGA_ID, &this->deviceID) ||
             !VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_VERSION_MAJOR, &this->majorVer) ||
             !VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_VERSION_MINOR, &this->minorVer))
             throw std::runtime_error("failed to get device information");
+
+
+        // we don't really care if these succeed because nothing relies on it _internally_.
+        // and we don't promise accuracy to the user for these.
+        VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_ALGO_TINY, &this->tiny);
+        VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_FPGA_ID, &this->fpgaID);
+        VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_DELAY_READ, &this->readDelay);
+        VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_DELAY_WRITE, &this->writeDelay);
+        VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_MAX_SIZE_RX, &this->maxSize);
+        VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_RETRY_ON_ERROR, &this->retry);
+
+
+        // --- some leechcore internal things we need to call ---
+
+        // send some initial LC commands to pull more data about the FPGA device
+        LC_CONFIG LcConfig = {};
+        LcConfig.dwVersion = LC_CONFIG_VERSION;
+        strcpy_s(LcConfig.szDevice, "existing");
+
+        // fetch already existing leechcore handle.
+        HANDLE hLC = LcCreate(&LcConfig);
+        if (!hLC)
+            throw std::runtime_error("failed to create leechcore device");
+
+
+
+        PBYTE cfgSpace = nullptr;
+        DWORD cfgSpaceSize = 0; // should always out 0x1000 but 🤷‍♂️S
+        LcCommand(
+                hLC,
+                LC_CMD_FPGA_PCIECFGSPACE,
+                0,
+                nullptr,
+                &cfgSpace,
+                &cfgSpaceSize);
+
+        // if we got data out - copy it & free the heap allocation
+        if(cfgSpace && cfgSpaceSize > 0) {
+            memcpy(this->configSpace, cfgSpace, min(0x1000, cfgSpaceSize));
+            LcMemFree(cfgSpace);
+        } else {
+            throw std::runtime_error("failed to query leechcore");
+        }
+
+
+        // close leechcore handle.
+        LcClose(hLC);
+
     }
 
     FPGA::~FPGA() {
-        assert(this->vmm && "null vmm");
         // if we deconstruct the global default device, we need to ensure we nullptr it
         // this way getDefaultFpga() will still function!
         if(this == gDevice) {
@@ -52,8 +98,6 @@ namespace memstream {
     }
 
     bool FPGA::DisableMasterAbort() const {
-        assert(this->vmm && "null vmm");
-
         if (this->majorVer < 4 || (this->majorVer < 5 && this->minorVer < 7))
             return false; // must be version 4.7 or newer!
 
@@ -79,21 +123,15 @@ namespace memstream {
                 nullptr,
                 nullptr);
 
+
+
         // close leechcore handle.
         LcClose(hLC);
 
         return true;
     }
 
-    VMM_HANDLE FPGA::getVmm() {
-        assert(this->vmm && "null vmm");
-
-        return this->vmm;
-    }
-
     bool FPGA::GetProcessInfo(uint32_t pid, VMMDLL_PROCESS_INFORMATION &info) {
-        assert(this->vmm && "null vmm");
-
         SIZE_T cbInfo = sizeof(VMMDLL_PROCESS_INFORMATION);
         info.magic = VMMDLL_PROCESS_INFORMATION_MAGIC;
         info.wVersion = VMMDLL_PROCESS_INFORMATION_VERSION;
@@ -101,8 +139,6 @@ namespace memstream {
     }
 
     std::vector<uint32_t> FPGA::GetAllProcessesByName(const std::string &name) {
-        assert(this->vmm && "null vmm");
-
         std::vector<uint32_t> results;
 
         PDWORD pdwPIDs;
@@ -139,17 +175,46 @@ namespace memstream {
         return results;
     }
 
-    uint64_t FPGA::getDeviceID() const {
-        assert(this->vmm && "null vmm");
 
+    VMM_HANDLE FPGA::getVmm() {
+        return this->vmm;
+    }
+
+    std::vector<uint8_t> FPGA::getCfgSpace() const {
+        return std::vector<uint8_t>(std::begin(this->configSpace), std::end(this->configSpace));
+    }
+
+    uint16_t FPGA::getDeviceID() const {
         return this->deviceID;
     }
 
     void FPGA::getVersion(uint64_t &major, uint64_t &minor) const {
-        assert(this->vmm && "null vmm");
-
         major = this->majorVer;
         minor = this->minorVer;
     }
 
-} // memstream
+    uint16_t FPGA::getFpgaID() const {
+        return this->fpgaID;
+    }
+
+    bool FPGA::getTinyAlg() const {
+        return this->tiny;
+    }
+
+    bool FPGA::getRetry() const {
+        return this->retry;
+    }
+
+    uint32_t FPGA::getMaxSize() const {
+        return this->maxSize;
+    }
+
+    uint32_t FPGA::getReadDelay() const {
+        return this->readDelay;
+    }
+
+    uint32_t FPGA::getWriteDelay() const {
+        return this->writeDelay;
+    }
+
+} // memstreamS
