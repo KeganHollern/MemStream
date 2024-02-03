@@ -29,6 +29,7 @@ add_subdirectory(src)
 # examples
 add_subdirectory(example/basic)
 add_subdirectory(example/cfgdump)
+add_subdirectory(example/detected)
 add_subdirectory(example/input)
 add_subdirectory(example/objects)
 add_subdirectory(example/mono)

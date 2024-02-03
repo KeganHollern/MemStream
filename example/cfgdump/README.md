@@ -1,7 +1,3 @@
-# Basic (Example)
+# CfgDump
 
-This application shows basic process interaction.
-
-## Result
-
-The first byte of `notepad.exe` on the victim machine should be written to console.
+This example dumps and displays the configuration space of the connected device.
