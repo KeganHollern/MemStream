@@ -123,6 +123,17 @@ namespace memstream {
 
         bool success = true;
 
+        // TODO: push readOps into buckets
+        //  these buckets will be performant scatter readsw
+        //  we'll execute multiple scatter reads (1 for each bucket)
+        // WHY:
+        //  a single scatter of two addresses far apart
+        //  is slower than two scatters of one address each
+        //
+        // once we've done that we can actually optimize further
+        // by pushing read ops directly into buckets
+        // during the "stageRead" step
+
         // push all reads into the scatter
         bool something_to_read = false;
         for (auto &read: readOps) {
