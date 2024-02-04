@@ -25,6 +25,10 @@ namespace memstream::windows {
         this->gptCursorAsync = this->kernel->GetExport("win32kbase.sys", "gptCursorAsync");
 
         //Somtimes win32kbase screws up. Getting the import from win32kfull.sys is an alternative way
+        if (!this->gafAsyncKeyStateAddr) {
+            this->gafAsyncKeyStateAddr = this->kernel->GetImport("win32kfull.sys", "gafAsyncKeyState");
+        }
+
         if (!this->gptCursorAsync) {
             this->gptCursorAsync = this->kernel->GetImport("win32kfull.sys", "gptCursorAsync");
         }
