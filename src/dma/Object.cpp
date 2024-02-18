@@ -61,59 +61,36 @@ namespace memstream::dma {
 
         if(this->offsets.empty()) return;
 
-        for (auto &offset: this->offsets) {
-            const uint32_t addr = offset.first;
-            auto& value = offset.second;
+        auto current_tick = GetTickCount64();
 
-            uint8_t* buffer = value.buffer;
-            uint32_t size = value.size;
+        for (const auto &offset: this->offsets) {
+            const uint32_t addr = offset.first;
+            const auto& value = offset.second;
+
+            auto buffer = value.buffer;
+            auto size = value.size;
 
             // drop invalid offsets
             if (!buffer) continue;
             if (size == 0) continue;
 
-            if(value.cache) { // CACHED
-                auto current_tick = GetTickCount64();
+            if(value.cache) {
                 auto duration = value.cache_duration;
+                auto last_cache = offset_caches[addr];
 
-                if(value.cache_duration == -1) {
-                    // ALREADY CACHED ONCE
-                    // no more reads necessary
-                    if(value.allow_zero_cache && value.last_cache != 0)
-                        continue;
 
-                    // if we already know there is a non-zero value then we
-                    // can just continue
-                    if(value.value_non_zero)
-                        continue;
-
-                    // look for non-zero value
-                    // TODO: we could be smarter and also walk by larger integer sizes
-                    // for larger buffers....
-                    for(uint32_t i = 0; i < size; i++) {
-                        if(buffer[i]) {
-                            value.value_non_zero = true;
-                            break;
-                        }
-                    }
-
-                    // we found a non-zero byte in buffer so
-                    // we can just continue
-                    if(value.value_non_zero)
-                        continue;
-
-                    // zero values will be read every second until a non-zero is found
-                    // TODO: make this configurable by adjusting the NEGATIVE in cache_duration ?
-                    duration = 1000;
+                if(duration == -1) {
+                    if(last_cache != 0) continue;
+                    duration = 0;
                 }
 
                 // check if cache not yet invalidated
-                auto cache_invalided_at = value.last_cache + duration;
+                auto cache_invalided_at = last_cache + duration;
                 if (current_tick < cache_invalided_at)
                     continue;
 
                 // update last cache (because we're going to push this value)
-                value.last_cache = current_tick;
+                offset_caches[addr] = current_tick;
             }
 
             this->proc->StageRead(
@@ -136,10 +113,7 @@ namespace memstream::dma {
         value.buffer = buffer;
         value.size = size;
         value.cache = false;
-        value.last_cache = 0;
         value.cache_duration = 0;
-        value.allow_zero_cache = false;
-        value.value_non_zero = false;
 
         this->offsets[off] = value;
     }
@@ -167,11 +141,11 @@ namespace memstream::dma {
         value.buffer = buffer;
         value.size = size;
         value.cache = true;
-        value.last_cache = 0;
         value.cache_duration = cache_duration_ms;
-        value.allow_zero_cache = allow_zero;
-        value.value_non_zero = false;
 
+        // TODO: allow_zero for cache
+
+        this->offset_caches[off] = 0;
         this->offsets[off] = value;
     }
 

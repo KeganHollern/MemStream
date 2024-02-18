@@ -81,12 +81,10 @@ namespace memstream::dma {
                 uint8_t* buffer;
                 uint32_t size;
                 bool cache;
-                uint64_t last_cache;
                 uint64_t cache_duration;
-                bool allow_zero_cache;
-                bool value_non_zero;
             };
 
+            std::unordered_map<uint32_t, uint64_t> offset_caches{};
             std::unordered_map<uint32_t, offset> offsets{};
             Process* proc;
         };
