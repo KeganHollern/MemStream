@@ -84,6 +84,7 @@ namespace memstream::dma {
                 uint64_t last_cache;
                 uint64_t cache_duration;
                 bool allow_zero_cache;
+                bool value_non_zero;
             };
 
             std::unordered_map<uint32_t, offset> offsets{};

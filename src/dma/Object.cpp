@@ -68,32 +68,49 @@ namespace memstream::dma {
             uint8_t* buffer = value.buffer;
             uint32_t size = value.size;
 
+            // drop invalid offsets
             if (!buffer) continue;
             if (size == 0) continue;
 
-            if(value.cache) {
-                // CACHING
+            if(value.cache) { // CACHED
                 auto current_tick = GetTickCount64();
+                auto duration = value.cache_duration;
 
-                if(value.cache_duration == -1) {
-                    // NO RECACHING
-                    if(value.allow_zero_cache && value.last_cache != 0)
-                        continue; // ALREADY CACHED ONCE
+                if(value.cache_duration == -1 && value.allow_zero_cache && value.last_cache != 0) {
+                    // ALREADY CACHED ONCE
+                    // no more reads necessary
+                    continue;
+                } else if(value.cache_duration == -1) {
 
-                    bool is_zero = true;
-                    for(int i = 0; i < size; i++) {
-                        if(buffer[i]) { is_zero = false; break; }
+                    // if we already know there is a non-zero value then we
+                    // can just continue
+                    if(value.value_non_zero)
+                        continue;
+
+                    // look for non-zero value
+                    for(uint32_t i = 0; i < size; i++) {
+                        if(buffer[i]) {
+                            value.value_non_zero = true;
+                            break;
+                        }
                     }
-                    if(!is_zero)
-                        continue; // ALREADY CACHED NONZERO VALUE
-                } else {
-                    // RECACHING ENABLED
-                    if ((current_tick - value.last_cache) <= value.cache_duration)
-                        continue; // NOT TIME TO RECACHE
+
+                    // we found a non-zero byte in buffer so
+                    // we can just continue
+                    if(value.value_non_zero)
+                        continue;
+
+                    // zero values will be read every second until a non-zero is found
+                    // TODO: make this configurable by adjusting the NEGATIVE in cache_duration ?
+                    duration = 1000;
                 }
 
-                // if we made it here we're recaching (or caching) and thus
-                // need to update last_cache
+                // check if cache not yet invalidated
+                auto cache_invalided_at = value.last_cache + duration;
+                if (current_tick < cache_invalided_at)
+                    continue;
+
+                // update last cache (because we're going to push this value)
                 value.last_cache = current_tick;
             }
 
@@ -120,6 +137,7 @@ namespace memstream::dma {
         value.last_cache = 0;
         value.cache_duration = 0;
         value.allow_zero_cache = false;
+        value.value_non_zero = false;
 
         this->offsets[off] = value;
     }
@@ -154,7 +172,8 @@ namespace memstream::dma {
         value.cache = true;
         value.last_cache = 0;
         value.cache_duration = cache_duration_ms;
-        value.allow_zero_cache = false;// TODO: hook this up to allow_zero
+        value.allow_zero_cache = allow_zero;
+        value.value_non_zero = false;
 
         this->offsets[off] = value;
     }
