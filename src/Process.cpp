@@ -136,7 +136,7 @@ namespace memstream {
 
         // push all reads into the scatter
         bool something_to_read = false;
-        for (auto &read: readOps) {
+        for (const auto &read: readOps) {
             uint64_t addr = std::get<0>(read);
             uint8_t *buf = std::get<1>(read);
             uint32_t len = std::get<2>(read);
