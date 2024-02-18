@@ -76,11 +76,11 @@ namespace memstream::dma {
                 auto current_tick = GetTickCount64();
                 auto duration = value.cache_duration;
 
-                if(value.cache_duration == -1 && value.allow_zero_cache && value.last_cache != 0) {
+                if(value.cache_duration == -1) {
                     // ALREADY CACHED ONCE
                     // no more reads necessary
-                    continue;
-                } else if(value.cache_duration == -1) {
+                    if(value.allow_zero_cache && value.last_cache != 0)
+                        continue;
 
                     // if we already know there is a non-zero value then we
                     // can just continue
@@ -88,6 +88,8 @@ namespace memstream::dma {
                         continue;
 
                     // look for non-zero value
+                    // TODO: we could be smarter and also walk by larger integer sizes
+                    // for larger buffers....
                     for(uint32_t i = 0; i < size; i++) {
                         if(buffer[i]) {
                             value.value_non_zero = true;
@@ -161,11 +163,6 @@ namespace memstream::dma {
     }
 
     void Object::PushCachedBuffer(uint32_t off, uint8_t *buffer, uint32_t size, uint64_t cache_duration_ms, bool allow_zero) {
-        // TODO: remove
-        // TEMPORARY FIX
-        if(cache_duration_ms == -1)
-            cache_duration_ms = 60*1000;
-
         offset value{};
         value.buffer = buffer;
         value.size = size;
