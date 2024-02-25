@@ -26,9 +26,9 @@
 #endif
 
 #include <cstdint>
-#include <vector>
 #include <tuple>
 #include <string>
+#include <list>
 
 #include <vmmdll.h>
 #include <MemStream/FPGA.h>
@@ -66,7 +66,7 @@ namespace memstream {
 
          bool ExecuteStagedReads();
 
-         bool ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
+         bool ReadMany(std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps);
 
         // writes
 
@@ -87,7 +87,7 @@ namespace memstream {
 
          bool ExecuteStagedWrites();
 
-         bool WriteMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &writeOps);
+         bool WriteMany(std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> &writeOps);
 
         // info stuff
 
@@ -139,8 +139,8 @@ namespace memstream {
 
 
 
-        std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> stagedReads;
-        std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> stagedWrites;
+        std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> stagedReads;
+        std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> stagedWrites;
 
         static std::vector<std::tuple<uint8_t, bool>> parsePattern(const std::string &pattern);
     };

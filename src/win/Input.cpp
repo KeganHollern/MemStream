@@ -92,7 +92,7 @@ namespace memstream::windows {
         std::memcpy(this->prevState, this->state, sizeof(uint8_t[64]));
 
         // scatter read these values
-        std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> reads = {
+        std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> reads = {
                 {this->gafAsyncKeyStateAddr, (uint8_t *) &this->state,     sizeof(uint8_t[64])},
                 {this->gptCursorAsync,       (uint8_t *) &this->cursorPos, sizeof(MousePoint)},
         };

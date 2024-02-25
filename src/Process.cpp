@@ -109,7 +109,7 @@ namespace memstream {
                 VMM_READ_FLAGS);
     }
 
-    bool Process::ReadMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps) {
+    bool Process::ReadMany(std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps) {
         // initialize a scatter
         if(!this->scatter) {
             auto new_scatter = VMMDLL_Scatter_Initialize(
@@ -196,7 +196,7 @@ namespace memstream {
         return result;
     }
 
-    bool Process::WriteMany(std::vector<std::tuple<uint64_t, uint8_t *, uint32_t>> &writeOps) {
+    bool Process::WriteMany(std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> &writeOps) {
         // reinit VMM scatter
         if(!this->scatter) {
             this->scatter = VMMDLL_Scatter_Initialize(

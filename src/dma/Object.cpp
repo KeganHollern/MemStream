@@ -54,7 +54,6 @@ namespace memstream::dma {
         }
     }
 
-
     void Object::StageRead() {
         // can't read if null...
         if(this->IsNull()) return;
