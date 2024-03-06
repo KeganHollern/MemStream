@@ -45,8 +45,13 @@ namespace memstream::windows {
         bool IsKeyDown(uint32_t vk); // if key is down _this_ frame
         bool WasKeyDown(uint32_t vk); // if key was down _last_ frame
 
-        void OnKeyStateChange(void(*callback)(int, bool)); // set a callback to be run on key state change
-
+        // set a callback to be run on key state change
+        //  Callback(VIRTUAL_KEY_CODE, IS_DOWN)
+        void OnKeyStateChange(void(*callback)(int, bool)); 
+        // set a callback to be run on mouse pos change
+        // Callback(CHANGE_IN_MOUSE_POSITION, NEW_MOUSE_POSITION)
+        void OnMouseMove(void(*callback)(MousePoint,MousePoint));
+         
         Process* GetKernelProcess();
 
         MousePoint GetCursorPos();
@@ -57,10 +62,14 @@ namespace memstream::windows {
         uint64_t gafAsyncKeyStateAddr;
         uint64_t gptCursorAsync;
 
+        MousePoint prevPos{0};
         MousePoint cursorPos{0};
         uint8_t state[64]{0};
         uint8_t prevState[64]{0};
         void(*key_callback)(int, bool) = nullptr;
+        void(*mouse_callback)(MousePoint,MousePoint) = nullptr;
+
+        bool first_update = true;
     };
 
 

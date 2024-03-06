@@ -95,3 +95,6 @@ libZycore.a
 libZydis.a
 
 release-*
+
+build/
+.vscode/

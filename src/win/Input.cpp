@@ -90,6 +90,7 @@ namespace memstream::windows {
 
         // save our old state
         std::memcpy(this->prevState, this->state, sizeof(uint8_t[64]));
+        this->prevPos = this->cursorPos;
 
         // scatter read these values
         std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> reads = {
@@ -103,14 +104,28 @@ namespace memstream::windows {
         // at this point we have the current keyboard state in this->state and the last in this->prevState
         // so we can determine if any key input has changed
         // and handle callbacks for that as needed
-        for (int vk = 0; vk < 256; ++vk) {
-            if(this->key_callback) { // we want to capture key state changes
+        if(this->key_callback) { 
+            for (int vk = 0; vk < 256; ++vk) {
                 if (this->IsKeyDown(vk) != this->WasKeyDown(vk)) { // the key state has changed since the last time we read
                     this->key_callback(vk, this->IsKeyDown(vk)); // notify of state change
                 }
             }
         }
+            
+        // we have the mouse state
+        // so we want to call the mouse callback with
+        // our change in X/Y pos, and the new target pos
+        if(this->mouse_callback) {
+            MousePoint deltaPos = {0};
+            if(!first_update) {
+                deltaPos.x = this->cursorPos.x - this->prevPos.x;
+                deltaPos.y = this->cursorPos.y - this->prevPos.y;
+            }
 
+            this->mouse_callback(deltaPos, this->cursorPos);
+        }
+
+        first_update = false;
         return true;
     }
 
@@ -123,6 +138,9 @@ namespace memstream::windows {
 
     void Input::OnKeyStateChange(void(*callback)(int, bool)) {
         this->key_callback = callback;
+    }
+    void Input::OnMouseMove(void(*callback)(MousePoint,MousePoint)) {
+        this->mouse_callback = callback;
     }
 
 
