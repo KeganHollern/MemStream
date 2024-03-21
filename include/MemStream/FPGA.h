@@ -28,7 +28,6 @@
 #define VMM_READ_FLAGS \
             (VMMDLL_FLAG_NO_PREDICTIVE_READ | \
             VMMDLL_FLAG_NOCACHE | \
-            VMMDLL_FLAG_NOPAGING | \
             VMMDLL_FLAG_NOCACHEPUT)
 
 namespace memstream {

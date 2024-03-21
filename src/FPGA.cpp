@@ -24,7 +24,7 @@ namespace memstream {
     }
 
     FPGA::FPGA() {
-        static char *args[4] = {};
+        static LPCSTR args[4] = {};
         args[0] = "";
         args[1] = "-device";
         args[2] = "fpga";
