@@ -78,18 +78,33 @@ namespace memstream {
     }
 
     void Process::StageRead(uint64_t addr, uint8_t *buffer, uint32_t size) {
-        if(!addr) return;
-        if(!buffer) return;
-        if(!size) return;
+        if(!addr || !buffer || !size) return;
 
-        this->stagedReads.emplace_back(addr, buffer, size);
+        this->stagedReads.push_front(std::make_shared<ScatterOp>(addr, buffer, size));
     }
 
     bool Process::ExecuteStagedReads() {
         if(this->stagedReads.empty()) return true;
+        bool result = true;
+        int attempts = 0;
+        while(!this->stagedReads.empty()) {
+            attempts++;
 
-        bool result = this->ReadMany(this->stagedReads);
-        this->stagedReads.clear();
+            result = this->ReadMany(this->stagedReads);
+            
+            // remove all successful reads and we'll retry if
+            // any failed
+            this->stagedReads.remove_if([](const std::shared_ptr<ScatterOp>& op){ 
+                return op->size == op->cbRead; });
+
+            // after 3 attempts we'll give up
+            // and mark this execution as failure
+            if(attempts == 3 && !this->stagedReads.empty()) {
+                this->stagedReads.clear();
+                result = false;
+            }
+        }
+
         return result;
     }
 
@@ -106,10 +121,10 @@ namespace memstream {
                 buffer,
                 size,
                 &read,
-                VMM_READ_FLAGS);
+                VMM_READ_FLAGS) && (read == size);
     }
 
-    bool Process::ReadMany(std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> &readOps) {
+    bool Process::ReadMany(std::list<std::shared_ptr<ScatterOp>> &operations) {
         // initialize a scatter
         if(!this->scatter) {
             auto new_scatter = VMMDLL_Scatter_Initialize(
@@ -119,58 +134,35 @@ namespace memstream {
 
             if (!new_scatter) return false;
             this->scatter = new_scatter;
+        } else {
+            VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
         }
 
-        bool success = true;
-
-        // TODO: push readOps into buckets
-        //  these buckets will be performant scatter readsw
-        //  we'll execute multiple scatter reads (1 for each bucket)
-        // WHY:
-        //  a single scatter of two addresses far apart
-        //  is slower than two scatters of one address each
-        //
-        // once we've done that we can actually optimize further
-        // by pushing read ops directly into buckets
-        // during the "stageRead" step
+        // TODO: optimized buckets for reading w/ multiple
+        //  DMA scatters.
 
         // push all reads into the scatter
         bool something_to_read = false;
-        for (const auto &read: readOps) {
-            uint64_t addr = std::get<0>(read);
-            uint8_t *buf = std::get<1>(read);
-            uint32_t len = std::get<2>(read);
 
-            // skip bad reads rather than fail out....
-            if (!addr) continue;
-            if (!buf) continue;
-            if (!len) continue;
-
-            DWORD memoryPrepared = NULL;
-            if (!VMMDLL_Scatter_PrepareEx(this->scatter, addr, len, buf, &memoryPrepared))  {
-                // failed to prep a read
-                // return failed
-                success = false;
-                goto done_scatter;
+        std::list<std::shared_ptr<ScatterOp>>::iterator it;
+        for (it = operations.begin(); it != operations.end(); ++it){
+            if(!(*it)->Valid()) continue;
+            if(!(*it)->PrepareRead(this->scatter)) {
+                return false;
             }
-
             something_to_read = true;
         }
 
         // nothing to read
         // return success
         if(!something_to_read)
-            goto done_scatter;
+            return true;
 
         // execute read
-        success = VMMDLL_Scatter_ExecuteRead(this->scatter);
-
-        // clean memory
-        // return success status
-    done_scatter:
-        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
-        //VMMDLL_Scatter_CloseHandle(this->scatter);
-        return success;
+        if(!VMMDLL_Scatter_ExecuteRead(this->scatter))
+            return false;
+    
+        return true;   
     }
 
     bool Process::Write(uint64_t addr, uint8_t *buffer, uint32_t size) {
@@ -187,7 +179,9 @@ namespace memstream {
     }
 
     void Process::StageWrite(uint64_t addr, uint8_t *buffer, uint32_t size) {
-        this->stagedWrites.emplace_back(addr, buffer, size);
+        if(!addr || !buffer || !size) return;
+
+        this->stagedWrites.push_front(std::make_shared<ScatterOp>(addr, buffer, size));
     }
 
     bool Process::ExecuteStagedWrites() {
@@ -196,7 +190,7 @@ namespace memstream {
         return result;
     }
 
-    bool Process::WriteMany(std::list<std::tuple<uint64_t, uint8_t *, uint32_t>> &writeOps) {
+    bool Process::WriteMany(std::list<std::shared_ptr<ScatterOp>>& operations) {
         // reinit VMM scatter
         if(!this->scatter) {
             this->scatter = VMMDLL_Scatter_Initialize(
@@ -204,42 +198,29 @@ namespace memstream {
                     this->getPid(),
                     VMM_READ_FLAGS);
             if(!this->scatter) return false;
+        } else {
+            VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
         }
 
         bool something_to_write = false;
         // push all writes into the scatter
-        for (auto &write: writeOps) {
-            uint64_t addr = std::get<0>(write);
-            uint8_t *buf = std::get<1>(write);
-            uint32_t len = std::get<2>(write);
-
-            // skip bad writes rather than fail out....
-            if (!addr) continue;
-            if (!buf) continue;
-            if (!len) continue;
-
-            if (!VMMDLL_Scatter_PrepareWrite(
-                    this->scatter,
-                    addr,
-                    buf,
-                    len))
-            {
-                if(something_to_write) VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
+        
+        std::list<std::shared_ptr<ScatterOp>>::iterator it;
+        for (it = operations.begin(); it != operations.end(); ++it){
+            if(!(*it)->Valid()) continue;
+            if(!(*it)->PrepareWrite(this->scatter)) {
                 return false;
             }
             something_to_write = true;
         }
-        // idk if i should return true or false here....
-        if(!something_to_write) return true;
+
+        if(!something_to_write) 
+            return true;
 
         // execute write & clean up mem
-        if (!VMMDLL_Scatter_Execute(this->scatter)) {
-            // write execution failed for some reason
-            VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
+        if (!VMMDLL_Scatter_Execute(this->scatter))
             return false;
-        }
 
-        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
         return true;
 
     }
@@ -544,4 +525,20 @@ namespace memstream {
     }
 
 
+    ScatterOp::ScatterOp(uint64_t address, uint32_t size) {
+        this->allocated = true;
+        this->buffer = new uint8_t[size]();
+        this->address = address;
+        this->size = size;
+    }
+    ScatterOp::ScatterOp(uint64_t address, uint8_t* buffer, uint32_t size) {
+        this->allocated = false;
+        this->buffer = buffer;
+        this->address = address;
+        this->size = size;
+    }
+    ScatterOp::~ScatterOp() {
+        if(this->allocated)
+            delete[] this->buffer;
+    }
 } // memstream

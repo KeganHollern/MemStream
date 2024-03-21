@@ -31,7 +31,6 @@
             VMMDLL_FLAG_NOCACHEPUT)
 
 namespace memstream {
-
     class MEMSTREAM_API FPGA {
     public:
         // TODO: add a constructor which takes the device ID
