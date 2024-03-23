@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdexcept>
 #include <list>
+#include <iostream>
 
 #include <vmmdll.h>
 
@@ -77,6 +78,10 @@ namespace memstream {
     uint32_t Process::getPid() const {
         return this->pid;
     }
+    
+    void Process::setVerbose(bool verbose) {
+        this->verbose = verbose;
+    }
 
     void Process::StageRead(uint64_t addr, uint8_t *buffer, uint32_t size) {
         if(!addr || !buffer || !size) return;
@@ -91,29 +96,38 @@ namespace memstream {
         int attempts = 0;
         while(!this->stagedReads.empty()) {
             attempts++;
-
+            
             // scatter read all data
             this->ReadMany(this->stagedReads);
             
+            auto totalReads = this->stagedReads.size();
             // remove all successful reads and we'll retry if
             // any failed
             this->stagedReads.remove_if([](const std::shared_ptr<ScatterOp>& op){ 
                 return op->size == op->cbRead; });
 
-
-            if(attempts == 2 && !this->stagedReads.empty()) {
-                // failed 2 scatter reads -> try to normal read all remaining data
-                std::list<uint64_t> failList;
-                for(const auto& item : this->stagedReads) {
-                    // one last non-scatter attempt
-                    if(!this->Read(item->address, item->buffer, item->size)) {
-                        // null the failed read buffer
-                        memset(item->buffer, 0, item->size); 
-                        failList.push_back(item->address);
-                    }
+            if(!this->stagedReads.empty()) {
+                if(this->verbose) {
+                    std::cout << "failed " << 
+                        this->stagedReads.size() << 
+                        " scatter reads of " << 
+                        totalReads << std::endl;
                 }
-                this->stagedReads.clear();
-                return failList;
+
+                if(attempts == 2) {
+                    // failed 2 scatter reads -> try to normal read all remaining data
+                    std::list<uint64_t> failList;
+                    for(const auto& item : this->stagedReads) {
+                        // one last non-scatter attempt
+                        if(!this->Read(item->address, item->buffer, item->size)) {
+                            // null the failed read buffer
+                            memset(item->buffer, 0, item->size); 
+                            failList.push_back(item->address);
+                        }
+                    }
+                    this->stagedReads.clear();
+                    return failList;
+                }
             }
         }
 

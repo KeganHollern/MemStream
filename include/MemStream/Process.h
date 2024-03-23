@@ -158,7 +158,7 @@ namespace memstream {
         const char* getName() const;
 
 
-        
+        void setVerbose(bool verbose);
 
     protected:
         VMMDLL_PROCESS_INFORMATION info;
@@ -173,6 +173,8 @@ namespace memstream {
         std::list<std::shared_ptr<ScatterOp>> stagedWrites;
 
         static std::vector<std::tuple<uint8_t, bool>> parsePattern(const std::string &pattern);
+
+        bool verbose = false;
     };
 
 
