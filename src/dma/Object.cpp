@@ -21,7 +21,8 @@ namespace memstream::dma {
         if (this->offsets.empty()) return true;
 
         this->StageRead(); // stage offsets for read
-        return this->proc->ExecuteStagedReads(); // read
+        std::list<uint64_t> failures = this->proc->ExecuteStagedReads(); // read
+        return failures.empty();
     }
 
 

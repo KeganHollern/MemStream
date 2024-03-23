@@ -77,7 +77,18 @@ namespace memstream {
 
         // Get the device PCILEECH-FPGA version.
         void getVersion(uint64_t &major, uint64_t &minor) const;
+        
+        inline DWORD readFlags() const { 
+            DWORD res = flags;
+            if(paging) 
+                res |= VMMDLL_FLAG_NOPAGING;
 
+            return res; 
+        }
+
+        inline void usePageFile(bool use) { 
+            this->paging = use; 
+        }
     protected:
         VMM_HANDLE vmm;
 
@@ -92,6 +103,9 @@ namespace memstream {
         uint64_t retry = 0;         // LC_OPT_FPGA_RETRY_ON_ERROR
 
         uint8_t configSpace[0x1000] = {0};
+
+        DWORD flags = VMM_READ_FLAGS;
+        bool paging = true;
     };
 
     MEMSTREAM_API FPGA *GetDefaultFPGA();

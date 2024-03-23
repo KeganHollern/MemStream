@@ -91,7 +91,7 @@ namespace memstream {
             StageRead(addr, (uint8_t *)(&value), sizeof(T));
         }
 
-         bool ExecuteStagedReads();
+        std::list<uint64_t> ExecuteStagedReads();
 
          bool ReadMany(std::list<std::shared_ptr<ScatterOp>> &reads);
 

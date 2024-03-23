@@ -4,6 +4,7 @@
 #include <tuple>
 #include <vector>
 #include <stdexcept>
+#include <list>
 
 #include <vmmdll.h>
 
@@ -26,7 +27,7 @@ namespace memstream {
         this->scatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
                 this->getPid(),
-                VMM_READ_FLAGS);
+                this->pFPGA->readFlags());
 
         if (!this->scatter)
             throw std::runtime_error("failed to initialize scatter for process");
@@ -57,7 +58,7 @@ namespace memstream {
         this->scatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
                 this->getPid(),
-                VMM_READ_FLAGS);
+                this->pFPGA->readFlags());
         if (!this->scatter)
             throw std::runtime_error("failed to initialize scatter for process");
     }
@@ -83,29 +84,40 @@ namespace memstream {
         this->stagedReads.push_front(std::make_shared<ScatterOp>(addr, buffer, size));
     }
 
-    bool Process::ExecuteStagedReads() {
-        if(this->stagedReads.empty()) return true;
+    std::list<uint64_t> Process::ExecuteStagedReads() {
+
+        if(this->stagedReads.empty()) return {};
         bool result = true;
         int attempts = 0;
         while(!this->stagedReads.empty()) {
             attempts++;
 
-            result = this->ReadMany(this->stagedReads);
+            // scatter read all data
+            this->ReadMany(this->stagedReads);
             
             // remove all successful reads and we'll retry if
             // any failed
             this->stagedReads.remove_if([](const std::shared_ptr<ScatterOp>& op){ 
                 return op->size == op->cbRead; });
 
-            // after 3 attempts we'll give up
-            // and mark this execution as failure
-            if(attempts == 3 && !this->stagedReads.empty()) {
+
+            if(attempts == 2 && !this->stagedReads.empty()) {
+                // failed 2 scatter reads -> try to normal read all remaining data
+                std::list<uint64_t> failList;
+                for(const auto& item : this->stagedReads) {
+                    // one last non-scatter attempt
+                    if(!this->Read(item->address, item->buffer, item->size)) {
+                        // null the failed read buffer
+                        memset(item->buffer, 0, item->size); 
+                        failList.push_back(item->address);
+                    }
+                }
                 this->stagedReads.clear();
-                result = false;
+                return failList;
             }
         }
 
-        return result;
+        return {};
     }
 
     bool Process::Read(uint64_t addr, uint8_t *buffer, uint32_t size) {
@@ -121,7 +133,7 @@ namespace memstream {
                 buffer,
                 size,
                 &read,
-                VMM_READ_FLAGS) && (read == size);
+                this->pFPGA->readFlags()) && (read == size);
     }
 
     bool Process::ReadMany(std::list<std::shared_ptr<ScatterOp>> &operations) {
@@ -130,13 +142,13 @@ namespace memstream {
             auto new_scatter = VMMDLL_Scatter_Initialize(
                     this->pFPGA->getVmm(),
                     this->getPid(),
-                    VMM_READ_FLAGS);
+                    this->pFPGA->readFlags());
 
             if (!new_scatter) return false;
             this->scatter = new_scatter;
-        } else {
-            VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
         }
+
+        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->pFPGA->readFlags());
 
         // TODO: optimized buckets for reading w/ multiple
         //  DMA scatters.
@@ -196,11 +208,11 @@ namespace memstream {
             this->scatter = VMMDLL_Scatter_Initialize(
                     this->pFPGA->getVmm(),
                     this->getPid(),
-                    VMM_READ_FLAGS);
+                    this->pFPGA->readFlags());
             if(!this->scatter) return false;
-        } else {
-            VMMDLL_Scatter_Clear(this->scatter, this->getPid(), VMM_READ_FLAGS);
         }
+
+        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->pFPGA->readFlags());
 
         bool something_to_write = false;
         // push all writes into the scatter
