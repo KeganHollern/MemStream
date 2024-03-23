@@ -87,7 +87,7 @@ namespace memstream {
         }
 
         inline void usePageFile(bool use) { 
-            this->paging = use; 
+            this->paging = !use; 
         }
     protected:
         VMM_HANDLE vmm;
