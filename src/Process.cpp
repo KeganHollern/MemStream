@@ -111,7 +111,9 @@ namespace memstream {
                     std::cout << "failed " << 
                         this->stagedReads.size() << 
                         " scatter reads of " << 
-                        totalReads << std::endl;
+                        totalReads <<
+                        " on attempt " <<
+                        attempts << std::endl;
                 }
 
                 if(attempts == 2) {
