@@ -35,8 +35,8 @@ namespace memstream::windows {
         if (!pServices) return results;
 
         for (uint32_t i = 0; i < pServices->cMap; i++) {
-            auto &entry = pServices->pMap[i];
-            results.push_back(entry);
+            const auto &entry = pServices->pMap[i];
+            results.emplace_back(entry);
         }
 
         VMMDLL_MemFree(pServices);

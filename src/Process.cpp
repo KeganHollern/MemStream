@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdexcept>
 #include <list>
+#include <iostream>
 
 #include <vmmdll.h>
 
@@ -27,7 +28,7 @@ namespace memstream {
         this->scatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
                 this->getPid(),
-                this->pFPGA->readFlags());
+                this->readFlags);
 
         if (!this->scatter)
             throw std::runtime_error("failed to initialize scatter for process");
@@ -58,7 +59,7 @@ namespace memstream {
         this->scatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
                 this->getPid(),
-                this->pFPGA->readFlags());
+                this->readFlags);
         if (!this->scatter)
             throw std::runtime_error("failed to initialize scatter for process");
     }
@@ -74,8 +75,16 @@ namespace memstream {
         return this->info.tpMemoryModel == VMMDLL_MEMORYMODEL_X64;
     }
 
+    uint32_t Process::getSessionId() const {
+        return this->info.win.dwSessionId;
+    }
+
     uint32_t Process::getPid() const {
         return this->pid;
+    }
+    
+    void Process::setVerbose(bool verbose) {
+        this->verbose = verbose;
     }
 
     void Process::StageRead(uint64_t addr, uint8_t *buffer, uint32_t size) {
@@ -91,29 +100,40 @@ namespace memstream {
         int attempts = 0;
         while(!this->stagedReads.empty()) {
             attempts++;
-
+            
             // scatter read all data
             this->ReadMany(this->stagedReads);
             
+            auto totalReads = this->stagedReads.size();
             // remove all successful reads and we'll retry if
             // any failed
             this->stagedReads.remove_if([](const std::shared_ptr<ScatterOp>& op){ 
                 return op->size == op->cbRead; });
 
-
-            if(attempts == 2 && !this->stagedReads.empty()) {
-                // failed 2 scatter reads -> try to normal read all remaining data
-                std::list<uint64_t> failList;
-                for(const auto& item : this->stagedReads) {
-                    // one last non-scatter attempt
-                    if(!this->Read(item->address, item->buffer, item->size)) {
-                        // null the failed read buffer
-                        memset(item->buffer, 0, item->size); 
-                        failList.push_back(item->address);
-                    }
+            if(!this->stagedReads.empty()) {
+                if(this->verbose) {
+                    std::cout << "failed " << 
+                        this->stagedReads.size() << 
+                        " scatter reads of " << 
+                        totalReads <<
+                        " on attempt " <<
+                        attempts << std::endl;
                 }
-                this->stagedReads.clear();
-                return failList;
+
+                if(attempts == 2) {
+                    // failed 2 scatter reads -> try to normal read all remaining data
+                    std::list<uint64_t> failList;
+                    for(const auto& item : this->stagedReads) {
+                        // one last non-scatter attempt
+                        if(!this->Read(item->address, item->buffer, item->size)) {
+                            // null the failed read buffer
+                            memset(item->buffer, 0, item->size); 
+                            failList.push_back(item->address);
+                        }
+                    }
+                    this->stagedReads.clear();
+                    return failList;
+                }
             }
         }
 
@@ -133,7 +153,7 @@ namespace memstream {
                 buffer,
                 size,
                 &read,
-                this->pFPGA->readFlags()) && (read == size);
+                this->readFlags) && (read == size);
     }
 
     bool Process::ReadMany(std::list<std::shared_ptr<ScatterOp>> &operations) {
@@ -142,13 +162,13 @@ namespace memstream {
             auto new_scatter = VMMDLL_Scatter_Initialize(
                     this->pFPGA->getVmm(),
                     this->getPid(),
-                    this->pFPGA->readFlags());
+                    this->readFlags);
 
             if (!new_scatter) return false;
             this->scatter = new_scatter;
         }
 
-        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->pFPGA->readFlags());
+        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->readFlags);
 
         // TODO: optimized buckets for reading w/ multiple
         //  DMA scatters.
@@ -208,11 +228,11 @@ namespace memstream {
             this->scatter = VMMDLL_Scatter_Initialize(
                     this->pFPGA->getVmm(),
                     this->getPid(),
-                    this->pFPGA->readFlags());
+                    this->readFlags);
             if(!this->scatter) return false;
         }
 
-        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->pFPGA->readFlags());
+        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->readFlags);
 
         bool something_to_write = false;
         // push all writes into the scatter
@@ -332,10 +352,8 @@ namespace memstream {
 
         PVMMDLL_MAP_MODULEENTRY pModuleEntry;
         for (int i = 0; i < pModuleMap->cMap; i++) {
-            pModuleEntry = pModuleMap->pMap + i;
-            if (!pModuleEntry) continue;
-
-            results.push_back(*pModuleEntry);
+            const auto& entry = pModuleMap->pMap[i];
+            results.emplace_back(entry);
         }
 
         VMMDLL_MemFree(pModuleMap);
@@ -443,10 +461,8 @@ namespace memstream {
 
         PVMMDLL_MAP_EATENTRY pEATEntry;
         for (int i = 0; i < pEAT->cMap; i++) {
-            pEATEntry = pEAT->pMap + i;
-            if (!pEATEntry) continue;
-
-            results.push_back(*pEATEntry);
+            const auto& entry = pEAT->pMap[i];
+            results.emplace_back(entry);
         }
 
         VMMDLL_MemFree(pEAT);
@@ -471,10 +487,8 @@ namespace memstream {
 
         PVMMDLL_MAP_IATENTRY pIATEntry;
         for (int i = 0; i < pIAT->cMap; i++) {
-            pIATEntry = pIAT->pMap + i;
-            if (!pIATEntry) continue;
-
-            results.push_back(*pIATEntry);
+            const auto& entry = pIAT->pMap[i];
+            results.emplace_back(entry);
         }
 
         VMMDLL_MemFree(pIAT);
@@ -500,10 +514,9 @@ namespace memstream {
         // this will turn X allocations/resizes into only 1 regardless of cMap size
         PVMMDLL_MAP_THREADENTRY pThreadEntry;
         for (int i = 0; i < pThreads->cMap; i++) {
-            pThreadEntry = pThreads->pMap + i;
-            if (!pThreadEntry) continue;
-
-            results.push_back(*pThreadEntry);
+            const auto& entry = pThreads->pMap[i];
+            
+            results.emplace_back(*pThreadEntry);
         }
 
         VMMDLL_MemFree(pThreads);

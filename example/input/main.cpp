@@ -57,6 +57,8 @@ void key_event(int vk, bool down) {
 
 int main() {
     try {
+        DebugVMM(); // enable VMM debug logs
+
         FPGA* fpga = GetDefaultFPGA();
         uint64_t maj, min, dev = 0;
         fpga->getVersion(maj, min);

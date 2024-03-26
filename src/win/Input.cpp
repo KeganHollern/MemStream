@@ -2,80 +2,116 @@
 #include <cassert>
 #include <stdexcept>
 #include <cstring>
+#include <algorithm>
 
 #include <vmmdll.h>
 
 #include "MemStream/FPGA.h"
-#include "MemStream/Process.h"
+#include "MemStream/Windows/Registry.h"
+
 #include "MemStream/Windows/Input.h"
 
 
 namespace memstream::windows {
+
+    // algorithm for pulling gafAsyncKeyState from win32ksg
+    // on windows version >22000
+    uint64_t win32ksgd(memstream::FPGA* pFPGA) {
+        if(!pFPGA)
+            throw std::runtime_error("null fpga in win32ksgd");
+
+        // get all csrss
+        auto procs = pFPGA->GetAllProcessesByName("csrss.exe");
+
+        // not enough ?!
+        if(procs.size() < 2)
+            throw std::runtime_error("could not find min 2 csrss.exe applications");
+
+        // sort them (because i don't trust ulf) and grab the 2nd process
+        std::sort(procs.begin(), procs.end()); 
+        uint32_t pid = procs.at(1);
+
+        memstream::Process csrss(pFPGA, pid);
+        csrss.setPaging(true); // ensure paged data is read
+
+        uint64_t base = csrss.GetModuleBase("win32ksgd.sys");
+        if(!base)
+            throw std::exception("could not find win32ksgd.sys");
+
+        uintptr_t addr = base + 0x3110;
+        uint64_t r1, r2, r3 = 0;
+
+        if(!csrss.Read(addr, r1))
+            throw std::runtime_error("failed to read win32ksgd.sys");
+
+        if(!r1)
+            throw std::runtime_error("failed to read r1 in win32ksgd.sys");
+
+        for(int i = 0; i < 4; i++) {
+            if(!csrss.Read(r1 + (i * 8), r2))
+                throw std::runtime_error("failed to read win32ksgd.sys");
+            
+            if(r2) break;
+        }
+
+        if(!r2)
+            throw std::runtime_error("failed to read r2 in win32ksgd.sys");
+
+        if(!csrss.Read(r2, r3))
+            throw std::runtime_error("failed to read win32ksgd.sys");
+
+        if(!r3)
+            throw std::runtime_error("failed to read r3 in win32ksgd.sys");
+
+        uint64_t result = r3 + 0x3690;
+        if (result <= 0x7FFFFFFFFFFF)
+            throw std::runtime_error("could not find gafAsyncKeyState in win32ksgd.sys");
+
+        return result;
+    }
+    uint64_t findkbaseexport(memstream::Process* kernel, const std::string& name) {
+        uint64_t addr = kernel->GetExport("win32kbase.sys", name); // try to pull export from kbase
+        if(addr <= 0x7FFFFFFFFFFF)
+            addr = kernel->GetImport("win32kfull.sys", name); // try to pull import from kfull
+        
+        if(addr <= 0x7FFFFFFFFFFF)
+            addr = 0;
+
+        return addr;
+    }
+
+
     Input::Input() : Input(GetDefaultFPGA()) {}
     Input::Input(FPGA *pFPGA) {
         if (!pFPGA)
             throw std::invalid_argument("null fpga");
 
-        this->kernel = getUserSessionKernelProcess(pFPGA);
-        if(!this->kernel)
-            throw std::runtime_error("could not find kernel session process");
+        // yes all of this stuff was lifted straight from Metick's DMA library
+        // my shit was broken so I copied him hoping it would fix it...
 
-        // windows 10 exports these...
-        this->gafAsyncKeyStateAddr = this->kernel->GetExport("win32kbase.sys", "gafAsyncKeyState");
-        this->gptCursorAsync = this->kernel->GetExport("win32kbase.sys", "gptCursorAsync");
+	    std::string win = QueryValue("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\CurrentBuild", e_registry_type::sz, pFPGA);
+        int Winver = 0;
+        if (!win.empty())
+            Winver = std::stoi(win);
+        else
+            throw std::runtime_error("unable to query HLKM registry");
 
-        //Somtimes win32kbase screws up. Getting the import from win32kfull.sys is an alternative way
-        if (!this->gafAsyncKeyStateAddr) {
-            this->gafAsyncKeyStateAddr = this->kernel->GetImport("win32kfull.sys", "gafAsyncKeyState");
+
+        // find winlogon and store it as our "kernel" process
+        uint32_t pid = pFPGA->GetProcessByName("winlogon.exe");
+        this->kernel = new memstream::Process(pFPGA, pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
+        this->kernel->setPaging(true); // ensure we read paged data...
+        
+        if (Winver > 22000) {
+            this->gafAsyncKeyStateAddr = win32ksgd(pFPGA);
+        } else {
+            this->gafAsyncKeyStateAddr = findkbaseexport(this->kernel, "gafAsyncKeyState");
+            if(!this->gafAsyncKeyStateAddr)
+                throw std::runtime_error("unable to find gafAsyncKeyState import/export");
         }
-
-        if (!this->gptCursorAsync) {
-            this->gptCursorAsync = this->kernel->GetImport("win32kfull.sys", "gptCursorAsync");
-        }
-
-        if (!this->gafAsyncKeyStateAddr) {
-            // probably windows 11 -- need to pull from win32ksgd.sys
-
-            uint64_t base = this->kernel->GetModuleBase("win32ksgd.sys");
-
-            if (!base)
-                throw std::runtime_error("could not find win32ksgd.sys");
-
-            uint64_t addr = base + 0x3110;
-            uint64_t r1, r2, r3 = 0;
-
-            if(!this->kernel->Read(addr, r1))
-                throw std::runtime_error("failed to read win32ksgd.sys");
-
-            if(!r1)
-                throw std::runtime_error("failed to read r1 in win32ksgd.sys");
-
-            for(int i = 0; i < 4; i++) {
-                if(!this->kernel->Read(r1 + (i * 8), r2))
-                    throw std::runtime_error("failed to read win32ksgd.sys");
-
-                if(r2) break;
-            }
-
-            if(!r2)
-                throw std::runtime_error("failed to read r2 in win32ksgd.sys");
-
-            if(!this->kernel->Read(r2, r3))
-                throw std::runtime_error("failed to read win32ksgd.sys");
-
-            if(!r3)
-                throw std::runtime_error("failed to read r3 in win32ksgd.sys");
-
-            uint64_t result = r3 + 0x3690;
-
-            this->gafAsyncKeyStateAddr = result;
-        }
-
-        if (!this->gafAsyncKeyStateAddr)
-            throw std::runtime_error("failed to find gafAsyncKeyState");
-
-        if (!this->gptCursorAsync)
-            throw std::runtime_error("failed to find CURSOR");
+        this->gptCursorAsync = findkbaseexport(this->kernel, "gptCursorAsync"); 
+        if(!this->gptCursorAsync)
+            throw std::runtime_error("unable to find gafAsyncKeyState import/export");
     }
 
     Input::~Input() {
@@ -150,27 +186,5 @@ namespace memstream::windows {
 
     Process *Input::GetKernelProcess() {
         return this->kernel;
-    }
-
-    Process* getUserSessionKernelProcess(FPGA *pFPGA) {
-        uint32_t kernel_process_pid = 0;
-
-        auto winlogon = pFPGA->GetAllProcessesByName("winlogon.exe");
-        if(winlogon.size() == 1) {
-            kernel_process_pid = winlogon[0];
-        } else {
-            // multiple winlogon procs... weird lets try csrss[1]
-            auto csrss = pFPGA->GetAllProcessesByName("csrss.exe");
-            if(csrss.size() >= 2) {
-                kernel_process_pid = csrss[1];
-            }
-        }
-
-        // unable to find kernel process...
-        if(kernel_process_pid == 0)
-            return nullptr;
-
-        auto kernel = new Process(pFPGA, kernel_process_pid | VMMDLL_PID_PROCESS_WITH_KERNELMEMORY);
-        return kernel;
     }
 }

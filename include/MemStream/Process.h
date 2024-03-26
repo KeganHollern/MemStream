@@ -153,12 +153,20 @@ namespace memstream {
         // Execute(fnc, args...) rax
         // Hook ?
         bool isIs64Bit() const;
+        
+        uint32_t getSessionId() const;
 
         uint32_t getPid() const;
         const char* getName() const;
 
+        inline void setPaging(bool readPagedData) {
+            if(readPagedData)
+                this->readFlags &= ~VMMDLL_FLAG_NOPAGING;
+            else 
+                this->readFlags |= VMMDLL_FLAG_NOPAGING;
+        }
 
-        
+        void setVerbose(bool verbose);
 
     protected:
         VMMDLL_PROCESS_INFORMATION info;
@@ -168,11 +176,14 @@ namespace memstream {
         uint32_t pid{};
 
 
-
         std::list<std::shared_ptr<ScatterOp>> stagedReads;
         std::list<std::shared_ptr<ScatterOp>> stagedWrites;
 
         static std::vector<std::tuple<uint8_t, bool>> parsePattern(const std::string &pattern);
+
+        bool verbose = false;
+
+        uint64_t readFlags = VMMDLL_FLAG_NO_PREDICTIVE_READ | VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_NOCACHEPUT;
     };
 
 
