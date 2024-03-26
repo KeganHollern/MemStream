@@ -25,11 +25,6 @@
 
 #include <vmmdll.h>
 
-#define VMM_READ_FLAGS \
-            (VMMDLL_FLAG_NO_PREDICTIVE_READ | \
-            VMMDLL_FLAG_NOCACHE | \
-            VMMDLL_FLAG_NOCACHEPUT)
-
 namespace memstream {
     class MEMSTREAM_API FPGA {
     public:
@@ -41,7 +36,8 @@ namespace memstream {
 
         // Enable Auto-Clear of Master Abort bit.
         bool DisableMasterAbort() const;
-
+        
+        uint32_t GetProcessByName(const std::string& name);
         // Get all PIDs of processes by name.
         std::vector<uint32_t> GetAllProcessesByName(const std::string &name);
         // Get process information.
@@ -77,18 +73,6 @@ namespace memstream {
 
         // Get the device PCILEECH-FPGA version.
         void getVersion(uint64_t &major, uint64_t &minor) const;
-        
-        inline DWORD readFlags() const { 
-            DWORD res = flags;
-            if(paging) 
-                res |= VMMDLL_FLAG_NOPAGING;
-
-            return res; 
-        }
-
-        inline void usePageFile(bool use) { 
-            this->paging = !use; 
-        }
     protected:
         VMM_HANDLE vmm;
 
@@ -103,12 +87,10 @@ namespace memstream {
         uint64_t retry = 0;         // LC_OPT_FPGA_RETRY_ON_ERROR
 
         uint8_t configSpace[0x1000] = {0};
-
-        DWORD flags = VMM_READ_FLAGS;
-        bool paging = true;
     };
 
     MEMSTREAM_API FPGA *GetDefaultFPGA();
+    MEMSTREAM_API void DebugVMM();
 } // memstream
 
 #endif //MEMSTREAM_FPGA_H

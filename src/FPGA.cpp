@@ -3,12 +3,14 @@
 #include <algorithm>
 #include <cctype>
 #include <stdexcept>
+#include <iostream>
 
 #include <vmmdll.h>
 
 #include "MemStream/FPGA.h"
 
 namespace memstream {
+    bool gDebug = false;
     // 99.99% of users don't need multiple
     // devices. So we have a "default" device
     // which is auto-constructed
@@ -23,16 +25,40 @@ namespace memstream {
         return gDevice;
     }
 
+    void DebugVMM() {
+        if(gDevice)
+            throw std::runtime_error("cannot enable debugging after connecting to fpga device");
+
+        gDebug = true;
+    }
+    
     FPGA::FPGA() {
-        static LPCSTR args[4] = {};
-        args[0] = "";
-        args[1] = "-device";
-        args[2] = "fpga";
+        std::cout << "initializing fpga device..." << std::endl;
+        LPCSTR args[] = {
+            const_cast<LPCSTR>(""), 
+            const_cast<LPCSTR>("-device"), 
+            const_cast<LPCSTR>("fpga://algo=0"), 
+            const_cast<LPCSTR>(""), 
+            const_cast<LPCSTR>("")
+        };
+        int argc = 3;
+        if(gDebug) {
+            args[argc++] = const_cast<LPCSTR>("-v");
+            args[argc++] = const_cast<LPCSTR>("-printf");
+        }
 
-        this->vmm = VMMDLL_Initialize(3, args);
-        if (!this->vmm)
-            throw std::runtime_error("failed to initialize device");
+        PLC_CONFIG_ERRORINFO errInfo = nullptr;
+        this->vmm = VMMDLL_InitializeEx(argc, args, &errInfo);
+        if (!this->vmm) {
+            if(errInfo && errInfo->dwVersion == LC_CONFIG_ERRORINFO_VERSION) {
+                std::wstring errmsg(errInfo->wszUserText, errInfo->cwszUserText);
+                std::string asStr(errmsg.begin(), errmsg.end());
+                std::cout << "VMM Error: " << asStr << std::endl;
+            }
+            std::cout << "errInfo ptr: " << errInfo << std::endl;
 
+            throw std::runtime_error("VMMDLL_InitializeEx failed");
+        }
         // NOTE: only LC_OPT* can be acquired via VMMDLL_ConfigGet
         if (!VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_FPGA_ID, &this->deviceID) ||
             !VMMDLL_ConfigGet(this->vmm, LC_OPT_FPGA_VERSION_MAJOR, &this->majorVer) ||
@@ -138,41 +164,31 @@ namespace memstream {
         return VMMDLL_ProcessGetInformation(this->vmm, pid, &info, &cbInfo);
     }
 
+    uint32_t FPGA::GetProcessByName(const std::string& name) {
+        uint32_t pid = 0;
+        VMMDLL_PidGetFromName(this->getVmm(), (LPSTR)name.c_str(), (PDWORD)&pid);
+        return pid;
+    }
+
     std::vector<uint32_t> FPGA::GetAllProcessesByName(const std::string &name) {
-        std::vector<uint32_t> results;
 
-        PDWORD pdwPIDs;
-        SIZE_T cPIDs = 0;
-        if (!VMMDLL_PidList(this->vmm, nullptr, &cPIDs))
-            return results;
+        PVMMDLL_PROCESS_INFORMATION process_info = NULL;
+        DWORD total_processes = 0;
+        std::vector<uint32_t> list = { };
 
-        pdwPIDs = new DWORD[cPIDs]();
-        if (!VMMDLL_PidList(this->vmm, pdwPIDs, &cPIDs)) {
-            delete[] pdwPIDs;
-            return results;
+        if (!VMMDLL_ProcessGetInformationAll(this->getVmm(), &process_info, &total_processes))
+        {
+            return list;
         }
 
-        for (SIZE_T i = 0; i < cPIDs; i++) {
-            DWORD dwPid = pdwPIDs[i];
-
-            // pull info from process
-            VMMDLL_PROCESS_INFORMATION info = {0};
-            if (!this->GetProcessInfo(dwPid, info))
-                continue;
-
-            // case-insensitive name check
-            std::string procName(info.szNameLong);
-
-
-            if (procName.size() == name.size() && std::equal(name.begin(), name.end(), procName.begin(), [](char a, char b) {
-                return std::tolower(a) == std::tolower(b);
-            })) {
-                results.push_back(dwPid);
-            }
+        for (size_t i = 0; i < total_processes; i++)
+        {
+            auto process = process_info[i];
+            if (strstr(process.szNameLong, name.c_str()))
+                list.emplace_back(process.dwPID);
         }
 
-        delete[] pdwPIDs;
-        return results;
+        return list;
     }
 
 

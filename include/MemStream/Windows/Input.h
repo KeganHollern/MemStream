@@ -71,10 +71,6 @@ namespace memstream::windows {
 
         bool first_update = true;
     };
-
-
-
-    Process* getUserSessionKernelProcess(FPGA* pFPGA);
 }
 
 #endif //MEMSTREAM_INPUT_H

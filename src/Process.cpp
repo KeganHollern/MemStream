@@ -28,7 +28,7 @@ namespace memstream {
         this->scatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
                 this->getPid(),
-                this->pFPGA->readFlags());
+                this->readFlags);
 
         if (!this->scatter)
             throw std::runtime_error("failed to initialize scatter for process");
@@ -59,7 +59,7 @@ namespace memstream {
         this->scatter = VMMDLL_Scatter_Initialize(
                 this->pFPGA->getVmm(),
                 this->getPid(),
-                this->pFPGA->readFlags());
+                this->readFlags);
         if (!this->scatter)
             throw std::runtime_error("failed to initialize scatter for process");
     }
@@ -73,6 +73,10 @@ namespace memstream {
 
     bool Process::isIs64Bit() const {
         return this->info.tpMemoryModel == VMMDLL_MEMORYMODEL_X64;
+    }
+
+    uint32_t Process::getSessionId() const {
+        return this->info.win.dwSessionId;
     }
 
     uint32_t Process::getPid() const {
@@ -149,7 +153,7 @@ namespace memstream {
                 buffer,
                 size,
                 &read,
-                this->pFPGA->readFlags()) && (read == size);
+                this->readFlags) && (read == size);
     }
 
     bool Process::ReadMany(std::list<std::shared_ptr<ScatterOp>> &operations) {
@@ -158,13 +162,13 @@ namespace memstream {
             auto new_scatter = VMMDLL_Scatter_Initialize(
                     this->pFPGA->getVmm(),
                     this->getPid(),
-                    this->pFPGA->readFlags());
+                    this->readFlags);
 
             if (!new_scatter) return false;
             this->scatter = new_scatter;
         }
 
-        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->pFPGA->readFlags());
+        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->readFlags);
 
         // TODO: optimized buckets for reading w/ multiple
         //  DMA scatters.
@@ -224,11 +228,11 @@ namespace memstream {
             this->scatter = VMMDLL_Scatter_Initialize(
                     this->pFPGA->getVmm(),
                     this->getPid(),
-                    this->pFPGA->readFlags());
+                    this->readFlags);
             if(!this->scatter) return false;
         }
 
-        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->pFPGA->readFlags());
+        VMMDLL_Scatter_Clear(this->scatter, this->getPid(), this->readFlags);
 
         bool something_to_write = false;
         // push all writes into the scatter
@@ -348,10 +352,8 @@ namespace memstream {
 
         PVMMDLL_MAP_MODULEENTRY pModuleEntry;
         for (int i = 0; i < pModuleMap->cMap; i++) {
-            pModuleEntry = pModuleMap->pMap + i;
-            if (!pModuleEntry) continue;
-
-            results.push_back(*pModuleEntry);
+            const auto& entry = pModuleMap->pMap[i];
+            results.emplace_back(entry);
         }
 
         VMMDLL_MemFree(pModuleMap);
@@ -459,10 +461,8 @@ namespace memstream {
 
         PVMMDLL_MAP_EATENTRY pEATEntry;
         for (int i = 0; i < pEAT->cMap; i++) {
-            pEATEntry = pEAT->pMap + i;
-            if (!pEATEntry) continue;
-
-            results.push_back(*pEATEntry);
+            const auto& entry = pEAT->pMap[i];
+            results.emplace_back(entry);
         }
 
         VMMDLL_MemFree(pEAT);
@@ -487,10 +487,8 @@ namespace memstream {
 
         PVMMDLL_MAP_IATENTRY pIATEntry;
         for (int i = 0; i < pIAT->cMap; i++) {
-            pIATEntry = pIAT->pMap + i;
-            if (!pIATEntry) continue;
-
-            results.push_back(*pIATEntry);
+            const auto& entry = pIAT->pMap[i];
+            results.emplace_back(entry);
         }
 
         VMMDLL_MemFree(pIAT);
@@ -516,10 +514,9 @@ namespace memstream {
         // this will turn X allocations/resizes into only 1 regardless of cMap size
         PVMMDLL_MAP_THREADENTRY pThreadEntry;
         for (int i = 0; i < pThreads->cMap; i++) {
-            pThreadEntry = pThreads->pMap + i;
-            if (!pThreadEntry) continue;
-
-            results.push_back(*pThreadEntry);
+            const auto& entry = pThreads->pMap[i];
+            
+            results.emplace_back(*pThreadEntry);
         }
 
         VMMDLL_MemFree(pThreads);

@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <chrono>
 #include <string>
-#include <print>
 #include <MemStream/Process.h>
 
 using namespace memstream;
