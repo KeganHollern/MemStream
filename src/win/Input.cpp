@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <algorithm>
+#include <iostream>
 
 #include <vmmdll.h>
 
@@ -88,13 +89,16 @@ namespace memstream::windows {
 
         // yes all of this stuff was lifted straight from Metick's DMA library
         // my shit was broken so I copied him hoping it would fix it...
+        std::string win = "";
+        try {
+	        win = QueryValue("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\CurrentBuild", e_registry_type::sz, pFPGA);
+        } catch (std::exception& e) {
+            std::cout << "CRITICAL: failed registry query - is your firmware up to date? assuming windows 10" << std::endl;
+        }
 
-	    std::string win = QueryValue("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\CurrentBuild", e_registry_type::sz, pFPGA);
         int Winver = 0;
         if (!win.empty())
             Winver = std::stoi(win);
-        else
-            throw std::runtime_error("unable to query HLKM registry");
 
 
         // find winlogon and store it as our "kernel" process
