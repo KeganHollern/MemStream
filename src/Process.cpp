@@ -107,8 +107,9 @@ namespace memstream {
             auto totalReads = this->stagedReads.size();
             // remove all successful reads and we'll retry if
             // any failed
+            // also remove any invalid reads because they wouldn't have been read
             this->stagedReads.remove_if([](const std::shared_ptr<ScatterOp>& op){ 
-                return op->size == op->cbRead; });
+                return !op->Valid() || op->size == op->cbRead; });
 
             if(!this->stagedReads.empty()) {
                 if(this->verbose) {
