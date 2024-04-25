@@ -183,7 +183,7 @@ namespace memstream {
 
         bool verbose = false;
 
-        uint64_t readFlags = VMMDLL_FLAG_NO_PREDICTIVE_READ | VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_NOCACHEPUT;
+        uint64_t readFlags = VMMDLL_FLAG_NO_PREDICTIVE_READ | VMMDLL_FLAG_NOCACHE | VMMDLL_FLAG_NOCACHEPUT /* | VMMDLL_FLAG_ZEROPAD_ON_FAIL */;
     };
 
 
