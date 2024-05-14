@@ -107,8 +107,9 @@ namespace memstream {
             auto totalReads = this->stagedReads.size();
             // remove all successful reads and we'll retry if
             // any failed
+            // also remove any invalid reads because they wouldn't have been read
             this->stagedReads.remove_if([](const std::shared_ptr<ScatterOp>& op){ 
-                return op->size == op->cbRead; });
+                return !op->Valid() || op->size == op->cbRead; });
 
             if(!this->stagedReads.empty()) {
                 if(this->verbose) {
@@ -459,7 +460,6 @@ namespace memstream {
             return results;
         }
 
-        PVMMDLL_MAP_EATENTRY pEATEntry;
         for (int i = 0; i < pEAT->cMap; i++) {
             const auto& entry = pEAT->pMap[i];
             results.emplace_back(entry);
@@ -485,7 +485,6 @@ namespace memstream {
             return results;
         }
 
-        PVMMDLL_MAP_IATENTRY pIATEntry;
         for (int i = 0; i < pIAT->cMap; i++) {
             const auto& entry = pIAT->pMap[i];
             results.emplace_back(entry);
@@ -512,11 +511,10 @@ namespace memstream {
 
         //TODO: for this pattern lets do RESIZE and copy data into the results vector
         // this will turn X allocations/resizes into only 1 regardless of cMap size
-        PVMMDLL_MAP_THREADENTRY pThreadEntry;
         for (int i = 0; i < pThreads->cMap; i++) {
             const auto& entry = pThreads->pMap[i];
             
-            results.emplace_back(*pThreadEntry);
+            results.emplace_back(entry);
         }
 
         VMMDLL_MemFree(pThreads);
