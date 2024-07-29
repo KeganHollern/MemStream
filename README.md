@@ -1,66 +1,54 @@
-# MemStream
+# MemStream (v2)
 
-MemStream is a wrapper for [MemProcFS](https://github.com/ufrisk/MemProcFS) providing a simplified C++ interface for FPGA-based DMA application development.
+MemStream is a wrapper for [MemProcFS](https://github.com/ufrisk/MemProcFS) 
+providing a simplified C++ interface for FPGA-based DMA application development.
 
 ## Usage
 
 ```c++
-#include <cstdint>
-#include <Process.h>
+// connect to FPGA device
+auto fpga = new memstream::v2::FPGA();
 
-void example() {
-    Process notepad("notepad.exe");
-    uint64_t base = notepad.GetModuleBase("notepad.exe");
-    uint8_t data = 0;
-    if(!notepad.Read(base, &data, 1)) {
-        printf("???");
-    }
-    printf("%x", data);
-}
+// print device information (version, configspace ect)
+std::cout << fpga->getConfiguration()->to_string() << std::endl;
+std::cout << "config space: " << std::endl;
+memstream::v2::log::buffer(fpga->getConfiguration()->configSpace, 0x1000);
+std::cout << std::endl;
+ 
+// initialize v2 memstream input (more stable!)
+input = new memstream::v2::Input(fpga);
+input->OnKeyStateChange(victim_key_change);
+input->OnMouseMove(victim_mouse_move);
 ```
 
 > Also see the [example](./example) directory.
 
-## Building
+## TODO List
 
-Building for Linux is done via a docker toolchain. Run:
-
-```shell
-make linux
-```
-
-> TODO: windows x64 builds via windows docker toolchain...
-
-## TODO
-
-Those marked `?` I am unsure about including.
-
-- [x] Build compatibility for all MemProcFS targets
+- [ ] Build compatibility for all MemProcFS targets
   - [x] Windows AMD64
   - [ ] Linux AMD64
   - [ ] Linux ARM64
-- [x] Refactor CMake projects
-- [ ] MemProcFS submodule dependency / autosymbol stuff
-- [x] Docker toolchains for build targets
+- [ ] MemProcFS submodule
+- [ ] Docker toolchains for build targets
 - [ ] Github Actions for automated builds
 - [ ] Complete Features
   - [ ] Dump Process
   - [ ] Caching features (EAT/IAT/ect. - things that do not change)
   - [x] Find Pattern
-  - [x] Find Code Cave
-  - [ ] Improve code cave search
-  - [ ] Refactor "Driver" Logic
-  - [ ] Shellcode Injection ?
-  - [ ] Function Calling ?
-  - [ ] Inline Hooking ?
-  - [ ] Library Manual Mapping ?
-  - [ ] Thread Hijacking ?
-  - [ ] Kernel Module Manual Mapping ?
-  - [ ] Mono Dissection Utils ?
+  - [ ] Find Code Cave
+  - [ ] Shellcode Injection
+    - [ ] Function Calling
+    - [ ] Inline Hooking
+    - [ ] Library Manual Mapping
+    - [ ] Thread Hijacking
+    - [ ] Kernel Module Manual Mapping
+  - [ ] Mono Dissection Utils
 - [ ] Create Example Apps
   - [x] Basic example
-  - [x] Input example
+  - [ ] Input example
   - [ ] [ReClass.NET](https://github.com/ReClassNET/ReClass.NET) Plugin
   - [ ] Performance test example
-  - [x] Real-world app example (mono dumper)
-- [ ] rework exceptions ?
+- [ ] MemProcFS optimizations
+  - [ ] Improve cache refresh rate
+  
