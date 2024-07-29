@@ -33,6 +33,7 @@ input->OnMouseMove(victim_mouse_move);
 - [ ] Docker toolchains for build targets
 - [ ] Github Actions for automated builds
 - [ ] Complete Features
+  - [x] Input Capture
   - [ ] Dump Process
   - [ ] Caching features (EAT/IAT/ect. - things that do not change)
   - [x] Find Pattern
